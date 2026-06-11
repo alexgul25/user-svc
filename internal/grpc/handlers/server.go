@@ -178,12 +178,9 @@ func (s *serverAPI) GetFollowers(ctx context.Context, in *userv1.GetFollowersReq
 		return nil, status.Error(codes.Internal, "failed to get user followers")
 	}
 
-	grpcFollowers := make([]*userv1.Follower, 0, len(followers))
-	for _, follower := range followers {
-		grpcFollowers = append(
-			grpcFollowers,
-			&userv1.Follower{UserId: follower.ID, DisplayName: follower.DisplayName, Email: follower.Email},
-		)
+	grpcFollowers := make([]*userv1.Follower, len(followers))
+	for i, follower := range followers {
+		grpcFollowers[i] = &userv1.Follower{UserId: follower.ID, DisplayName: follower.DisplayName, Email: follower.Email}
 	}
 
 	return &userv1.GetFollowersResponse{Followers: grpcFollowers}, nil

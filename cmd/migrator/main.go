@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
 	"github.com/alexgul25/user-svc/internal/config"
@@ -25,7 +26,7 @@ func main() {
 		cfg.Database.DbName,
 	)
 
-	db, err := goose.OpenDBWithDriver("postgres", connStr)
+	db, err := goose.OpenDBWithDriver("pgx", connStr)
 	if err != nil {
 		slog.Error("failed to open DB", slog.Any("error", err))
 		os.Exit(1)
