@@ -1,90 +1,104 @@
 # User Service (user-svc)
 
 Микросервис для проекта **Date Wishlist Hub**, отвечает за данные о пользователях и подписках.  
-Реализован на `Go`, общается по `gRPC`, хранит данные в `PostgreSQL`.
+
+Стек: `Go`, `gRPC`, `PostgreSQL`
 
 ## Основные возможности
 
-- Регистрация и вход (JWT access‑токен)
-- Получение собственного профиля
-- Подписка на других пользователей и, соответственно, отписка
-- Получение списка подписчиков (используется в **Notification Service**)
-- Graceful shutdown
+- Регистрация новых пользователей (`Register` - доступен любым пользователям)
 
-Важно! Сам **User Service** только генерирует и возвращает новые JWT токены для успешно залогинившихся пользователей. Токены, переданные пользователем, должны проверяться в сервисе **API Gateway**, который при успешной аутентификации отправляет gRPC запросы с конкретными данными в **User Service**, которым последний доверяет. Поэтому только **API Gateway** должен иметь сетевой доступ к **User Service**
+- Выдача access-токенов пользователям при успешной аутентификации (`Login` - доступен любым пользователям)
+
+- Получение информации о своём профиле (`GetMyProfile` - доступен только залогинившимя пользователям)
+
+- Подписка на других пользователей (`Subscribe` - доступен только залогинившимся пользователям)
+
+- Отмена своей подписки (`Unsubscribe` - доступен только залогинившимся пользователям)
+
+- Получение списка подписчиков пользователя (`GetFollowers` - используется в **Notification Service**)
+
+**Важно!** Сам **User Service** только генерирует и возвращает новые JWT токены для успешно залогинившихся пользователей. Токены, переданные пользователем, должны проверяться в сервисе **API Gateway**, который при успешной аутентификации отправляет gRPC запросы с конкретными данными в **User Service**. Сам **User Service** доверяет полученным из запроса данным, поэтому только **API Gateway** должен иметь сетевой доступ к **User Service**
 
 ## Архитектура
 
-Сервис состоит из трёх основных слоёв:
+.
+├── cmd.................. Команды для запуска приложения
+│   ├── migrator......... Утилита для миграции БД
+│   └── svc-starter...... Основная точка входа в user-svc
+├── internal............. Внутренности проекта
+│   ├── app.............. Код для запуска различных компонентов приложения
+│   │   └── grpc......... Запуск gRPC-сервера
+│   ├── config........... Загрузка конфигурации
+│   ├── domain
+│   │   └── models....... Структуры данных и модели домена
+│   ├── grpc
+│   │   └── handlers..... gRPC-хэндлеры user-svc
+│   ├── lib.............. Общие вспомогательные утилиты и функции
+│   ├── service.......... Сервисный слой (бизнес-логика)
+│   │   └── user
+│   └── storage.......... Слой хранения данных
+│       └── postgresql... Реализация на PostgreSQL
+└── migrations........... Миграции для БД
 
-- **Транспортный слой** – gRPC‑хендлеры (`internal/grpc/handlers`)
-- **Бизнес‑логика** – сценарии регистрации, аутентификации (получения JWT токена), подписок (`internal/service/user`)
-- **Хранилище** – `PostgreSQL` через `database/sql` и `pgx` (`internal/storage/postgresql`)
+## Локальная установка и запуск
 
-## Стек
-
-- Go 1.21+
-- gRPC (google.golang.org/grpc)
-- PostgreSQL (драйвер pgx)
-- Миграции через [goose](https://github.com/pressly/goose)
-- JWT (golang-jwt/jwt/v5)
-- bcrypt для паролей
-- Структурированное логирование (slog)
-
-## Установка и запуск
-
-### Требования
-
-- Go 1.21+
-- PostgreSQL 12+ (с расширением pgcrypto, если версия <13)
-- Утилита `psql`
-- Утилита `grpcurl`
-- protoc (компилятор Protocol Buffers)
-- make
+Ниже приведены шаги для запуска проекта в дистрибутиве Ubuntu 24.04, установленном через WSL2
 
 ### 0. Подготовка
 
-Для удобства, если считаете нужным, создайте отдельную папку и перейдите в неё
+Убедитесь, что в вашем дистрибутиве установлены и готовы к работе следующие инструменты.
+
+1. Go 1.21+
+
+2. Сервер БД PostgreSQL (версия 13+) и клиентские утилиты (в частности `psql`)
+
+После проверки создайте отдельную папку (можете выбрать название по душе) и перейдите в неё
 
 ```bash
 mkdir sandbox && cd sandbox
 ```
 
-### 1. Клонируйте нужные репозитории
+Создание отдельной папки будет особенно удобно в дальнейшем [при локальном тестировании](#локальное-тестирование)
 
-Клонируем репозиторий user-svc
+### 1. Клонируйте репозиторий
+
+Клонируйте этот репозиторий c помощью HTTP или SSH
 
 ```bash
 git clone https://github.com/alexgul25/user-svc.git
 ```
 
-Клонируем репозиторий [protos](https://github.com/alexgul25/protos). Он пригодится для тестирования
-
 ```bash
-git clone https://github.com/alexgul25/protos.git
+git clone git@github.com:alexgul25/user-svc.git
 ```
 
-### 2. Убедитесь, что PostgreSQL уже запущен
+### 2. Подготовьте к работе сервер PostgreSQL
 
-Проверить статус запуска:
-
-```bash
-sudo service postgresql status
-```
-
-Запустить сервер PostgreSQL:
+Необходимо убедиться, что сервер БД запущен. Для этого используйте команду вывода всех установленных и настроенных кластеров PostgreSQL в системе
 
 ```bash
-sudo service postgresql start
+pg_lsclusters
 ```
 
-Остановить сервер PostgreSQL:
+Ниже пример вывода из моего дистрибутива. Главное, проверьте значение поля Status
 
 ```bash
-sudo service postgresql stop
+Ver Cluster Port Status Owner    Data directory              Log file
+16  main    5432 online postgres /var/lib/postgresql/16/main /var/log/postgresql/postgresql-16-main.log
 ```
 
-### 3. Создайте пользователя и БД в PostgreSQL
+Пример запуска и остановки конкретного сервера в моём дистрибутиве
+
+```bash
+sudo systemctl start postgresql@16-main
+```
+
+```bash
+sudo systemctl stop postgresql@16-main
+```
+
+### 3. Создайте пользователя и БД для работы с сервером PostgreSQL
 
 Создание пользователя
 
@@ -104,19 +118,20 @@ sudo -u postgres psql -c "CREATE DATABASE test_user_db OWNER test_user_svc_owner
 psql -h localhost -U test_user_svc_owner -d test_user_db -c "SELECT 1;"
 ```
 
-### 4. Настройте окружение
-
-Создайте `.env` файл в корне проекта и заполните его по аналогии с `.env.example`. Для переменных окружения БД используйте данные, созданные на прошлом шаге.
-
-### 5. Сгенерируйте protoset файл
-
-Для удобного локального тестирования перейдите в папку **protos** и создайте **protoset**
+Если всё работает корректно, вас попросят ввести пароль для только что созданного пользователя, указав который, вы увидите следующий вывод
 
 ```bash
-cd protos && make protoset
+ ?column? 
+----------
+        1
+(1 row)
 ```
 
-### 6. Примените миграции и запустите сервер
+### 4. Настройте окружение
+
+Создайте `.env` файл в корне проекта и заполните его по аналогии с [.env.example](.env.example). Для переменных окружения БД используйте данные, созданные на прошлом шаге.
+
+### 5. Примените миграции и запустите сервер
 
 Перейдите в папку **user-svc** и выполните команды
 
@@ -126,46 +141,97 @@ go run ./cmd/migrator && go run ./cmd/svc-starter
 
 Сервер слушает порт, заданный в переменной окружения `GRPCSERVER_PORT` (по умолчанию `50051`)
 
-### 6. Протестируйте сервер
+Чтобы остановить работу сервера, введите в терминале `CTRL + C`
 
-Примеры тестовых запросов.
+## Локальное тестирование
+
+Как и в разделе [Локальная установка и запуск](#локальная-установка-и-запуск), здесь приведены шаги для локального тестирования в дистрибутиве Ubuntu 24.04, установленном через WSL2
+
+Находясь в папке, созданной при [подготовке к локальному запуску](#0-подготовка), клонируйте репозиторий [protos](https://github.com/alexgul25/protos) с помощью HTTP или SSH
+
+```bash
+git clone https://github.com/alexgul25/protos.git
+```
+
+```bash
+git clone git@github.com:alexgul25/protos.git
+```
+
+Теперь [запустите сервер](#локальная-установка-и-запуск)
+
+Далее приведены два способа тестирования, можете выбрать любой, исходя из своих предпочтений
+
+### Тестирование с помощью `grpcurl`
+
+Необходимы утилиты `make` и `grpcurl`
+
+Создайте новый терминал (при этом терминал с запущенным сервером должен продолжать работать)
+
+Перейдите в папку **protos**, созданную при клонировании репозитория
+
+Затем создайте бинарный файл **user_service_v1.protoset** с помощью утилиты `make`
+
+```bash
+make protoset
+```
+
+Протестируйте сервер. Ниже приведены примеры готовых запросов (**Важно!** В приведённых ниже командах адрес **user_service_v1.protoset** прописан с учётом того, что вы находитесь  в папке, созданной при [подготовке к локальному запуску](#0-подготовка))
 
 - Зарегистрировать пользователя
 
 ```bash
 grpcurl -plaintext \
-  -protoset ../protos/user_service_v1.protoset \
+  -protoset protos/user_service_v1.protoset \
   -d '{"email":"alex@example.com","password":"secret123","display_name":"Alex"}' \
   localhost:50051 user.v1.UserService/Register
 ```
 
-- Аутентифицировать пользователя
+- Выдать новый токен пользователю при успешной аутентификации
 
 ```bash
 grpcurl -plaintext \
-  -protoset ../protos/user_service_v1.protoset \
+  -protoset protos/user_service_v1.protoset \
   -d '{"email":"alex@example.com","password":"secret123"}' \
   localhost:50051 user.v1.UserService/Login
 ```
 
-- Получить свой профиль (добавьте нужный id в метаданные)
+- Получить свой профиль (вставьте id пользователя)
 
 ```bash
 grpcurl -plaintext \
-  -protoset ../protos/user_service_v1.protoset \
-  -H 'x-user-id: <ваш_user_id>' \
+  -protoset protos/user_service_v1.protoset \
+  -H 'x-user-id: <ваш user_id>' \
   -d '{}' \
   localhost:50051 user.v1.UserService/GetMyProfile
 ```
 
-- Подписаться на другого пользователя
+- Подписаться на другого пользователя (вставьте id пользователя и id целевого пользователя)
 
 ```bash
 grpcurl -plaintext \
-  -protoset ../protos/user_service_v1.protoset \
-  -H 'x-user-id: <ваш_user_id>' \
-  -d '{"followee_id":"<целевой_user_id>"}' \
+  -protoset protos/user_service_v1.protoset \
+  -H 'x-user-id: <ваш user_id>' \
+  -d '{"followee_id":"<ваш followee_id>"}' \
   localhost:50051 user.v1.UserService/Subscribe
+```
+
+- Отписаться от другого пользователя (вставьте id пользователя и id целевого пользователя)
+
+```bash
+grpcurl -plaintext \
+  -protoset protos/user_service_v1.protoset \
+  -H 'x-user-id: <ваш user_id>' \
+  -d '{"followee_id":"<ваш followee_id>"}' \
+  localhost:50051 user.v1.UserService/Unsubscribe
+```
+
+- Получить список подписчиков пользователя (вставьте id пользователя)
+
+```bash
+grpcurl -plaintext \
+  -protoset protos/user_service_v1.protoset \
+  -d '{"user_id":"<ваш user_id>"}' \
+  localhost:50051 user.v1.UserService/GetFollowers
 ```
 
 - Посмотреть список доступных методов
@@ -175,3 +241,7 @@ grpcurl -plaintext \
   -protoset ../protos/user_service_v1.protoset \
   list user.v1.UserService
 ```
+
+### Тестирование с помощью [Postman](https://www.postman.com/)
+
+Раздел активно разрабатывается в данный момент
