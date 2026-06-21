@@ -20,12 +20,12 @@ var (
 )
 
 var methodAccess = map[string][]string{
-	"user.v1.UserService/Register":     {"gateway-svc"},
-	"user.v1.UserService/Login":        {"gateway-svc"},
-	"user.v1.UserService/GetMyProfile": {"gateway-svc"},
-	"user.v1.UserService/Subscribe":    {"gateway-svc"},
-	"user.v1.UserService/Unsubscribe":  {"gateway-svc"},
-	"user.v1.UserService/GetFollowers": {"gateway-svc", "notification-svc"},
+	"/user.v1.UserService/Register":     {"gateway-svc"},
+	"/user.v1.UserService/Login":        {"gateway-svc"},
+	"/user.v1.UserService/GetMyProfile": {"gateway-svc"},
+	"/user.v1.UserService/Subscribe":    {"gateway-svc"},
+	"/user.v1.UserService/Unsubscribe":  {"gateway-svc"},
+	"/user.v1.UserService/GetFollowers": {"gateway-svc", "notification-svc"},
 }
 
 func NewRecoveryInterceptor(log *slog.Logger) grpc.UnaryServerInterceptor {
