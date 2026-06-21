@@ -24,8 +24,9 @@ func New(
 	log *slog.Logger,
 	grpcPort int,
 	dbUser, dbPassword, dbHost, dbName string, dbPort int,
-	secret string,
+	jwtSecret string,
 	tokenTTL time.Duration,
+	apiKey string,
 ) (*App, error) {
 	storage, err := postgresql.NewStorage(dbUser, dbPassword, dbHost, dbName, dbPort)
 	if err != nil {
@@ -34,11 +35,11 @@ func New(
 
 	userStorage := postgresql.NewUserStorage(storage.DB())
 
-	jwtManger := jwt.NewJWTManager(secret, tokenTTL)
+	jwtManger := jwt.NewJWTManager(jwtSecret, tokenTTL)
 
 	userLogic := userlogic.NewUserLogic(log, userStorage, userStorage, jwtManger)
 
-	serverApp := grpcapp.New(log, userLogic, grpcPort)
+	serverApp := grpcapp.New(log, userLogic, grpcPort, apiKey)
 
 	return &App{GRPCServer: serverApp, StorageCloser: storage}, nil
 }

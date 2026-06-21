@@ -1,18 +1,14 @@
 package grpcapp
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"net"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
-	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	handlersgrpc "github.com/alexgul25/user-svc/internal/grpc/handlers"
+	"github.com/alexgul25/user-svc/internal/grpc/interceptors"
 )
 
 type ServerApp struct {
@@ -21,18 +17,12 @@ type ServerApp struct {
 	port       int
 }
 
-func New(log *slog.Logger, userService handlersgrpc.UserService, port int) *ServerApp {
-	recoveryOpts := []recovery.Option{
-		recovery.WithRecoveryHandler(func(p any) (err error) {
-			log.Error("recovered from panic", slog.Any("panic", p))
-
-			return status.Error(codes.Internal, "internal error")
-		}),
-	}
-
+func New(log *slog.Logger, userService handlersgrpc.UserService, port int, apiKey string) *ServerApp {
 	gRPCServer := grpc.NewServer(grpc.ChainUnaryInterceptor(
-		recovery.UnaryServerInterceptor(recoveryOpts...),
-		logging.UnaryServerInterceptor(InterceptorLogger(log)),
+		interceptors.NewRecoveryInterceptor(log),
+		interceptors.NewLoggingInterceptor(log),
+		interceptors.NewValidationInterceptor(apiKey),
+		interceptors.NewContextEnricherInterceptor(),
 	))
 
 	handlersgrpc.Register(gRPCServer, userService)
@@ -42,12 +32,6 @@ func New(log *slog.Logger, userService handlersgrpc.UserService, port int) *Serv
 		gRPCServer: gRPCServer,
 		port:       port,
 	}
-}
-
-func InterceptorLogger(l *slog.Logger) logging.Logger {
-	return logging.LoggerFunc(func(ctx context.Context, level logging.Level, msg string, fields ...any) {
-		l.Log(ctx, slog.Level(level), msg, fields...)
-	})
 }
 
 func (sa *ServerApp) MustRun() {

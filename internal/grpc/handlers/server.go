@@ -7,12 +7,12 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	commonv1 "github.com/alexgul25/protos/gen/go/common/v1"
 	userv1 "github.com/alexgul25/protos/gen/go/user/v1"
 	"github.com/alexgul25/user-svc/internal/domain/models"
+	"github.com/alexgul25/user-svc/internal/grpc/interceptors"
 	userlogic "github.com/alexgul25/user-svc/internal/service/user"
 	"github.com/alexgul25/user-svc/internal/storage"
 )
@@ -87,16 +87,10 @@ func (s *serverAPI) Login(ctx context.Context, in *userv1.LoginRequest) (*userv1
 }
 
 func (s *serverAPI) GetMyProfile(ctx context.Context, in *userv1.GetMyProfileRequest) (*userv1.ProfileResponse, error) {
-	md, ok := metadata.FromIncomingContext(ctx)
+	userID, ok := interceptors.GetUserIDFromContext(ctx)
 	if !ok {
-		return nil, status.Error(codes.Unauthenticated, "metadata is required")
-	}
-
-	values := md.Get("x-user-id")
-	if len(values) == 0 {
 		return nil, status.Error(codes.Unauthenticated, "user id is required")
 	}
-	userID := values[0]
 
 	user, err := s.userService.GetMyProfile(ctx, userID)
 	if err != nil {
@@ -112,20 +106,14 @@ func (s *serverAPI) GetMyProfile(ctx context.Context, in *userv1.GetMyProfileReq
 }
 
 func (s *serverAPI) Subscribe(ctx context.Context, in *userv1.SubscribeRequest) (*commonv1.Empty, error) {
+	followerID, ok := interceptors.GetUserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "user id is required")
+	}
+
 	if in.FolloweeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "followee id is required")
 	}
-
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return nil, status.Error(codes.Unauthenticated, "metadata is required")
-	}
-
-	values := md.Get("x-user-id")
-	if len(values) == 0 {
-		return nil, status.Error(codes.Unauthenticated, "follower id is required")
-	}
-	followerID := values[0]
 
 	if err := s.userService.Subscribe(ctx, followerID, in.GetFolloweeId()); err != nil {
 		if errors.Is(err, storage.ErrAlreadySubscribed) {
@@ -142,20 +130,14 @@ func (s *serverAPI) Subscribe(ctx context.Context, in *userv1.SubscribeRequest) 
 }
 
 func (s *serverAPI) Unsubscribe(ctx context.Context, in *userv1.UnsubscribeRequest) (*commonv1.Empty, error) {
+	followerID, ok := interceptors.GetUserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "user id is required")
+	}
+
 	if in.FolloweeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "followee id is required")
 	}
-
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return nil, status.Error(codes.Unauthenticated, "metadata is required")
-	}
-
-	values := md.Get("x-user-id")
-	if len(values) == 0 {
-		return nil, status.Error(codes.Unauthenticated, "follower id is required")
-	}
-	followerID := values[0]
 
 	if err := s.userService.Unsubscribe(ctx, followerID, in.GetFolloweeId()); err != nil {
 		if errors.Is(err, userlogic.ErrSelfSubscription) {
@@ -169,6 +151,11 @@ func (s *serverAPI) Unsubscribe(ctx context.Context, in *userv1.UnsubscribeReque
 }
 
 func (s *serverAPI) GetFollowers(ctx context.Context, in *userv1.GetFollowersRequest) (*userv1.GetFollowersResponse, error) {
+	serviceName, ok := interceptors.GetServiceNameFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing service name")
+	}
+
 	if in.UserId == "" {
 		return nil, status.Error(codes.InvalidArgument, "user id is required")
 	}
@@ -180,6 +167,9 @@ func (s *serverAPI) GetFollowers(ctx context.Context, in *userv1.GetFollowersReq
 
 	grpcFollowers := make([]*userv1.Follower, len(followers))
 	for i, follower := range followers {
+		if serviceName == "gateway-svc" {
+			follower.Email = ""
+		}
 		grpcFollowers[i] = &userv1.Follower{UserId: follower.ID, DisplayName: follower.DisplayName, Email: follower.Email}
 	}
 

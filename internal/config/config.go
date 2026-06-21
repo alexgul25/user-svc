@@ -26,6 +26,7 @@ type DatabaseConfig struct {
 type GRPCServerConfig struct {
 	Port            int           `envconfig:"GRPCSERVER_PORT" env-default:"50051"`
 	GracefulTimeout time.Duration `envconfig:"GRACEFUL_TIMEOUT" env-default:"10s"`
+	APIKey          string        `envconfig:"API_KEY"`
 }
 
 type JWTConfig struct {
@@ -59,6 +60,9 @@ func LoadUserService() (*Config, error) {
 
 	if cfg.Env == "" {
 		return nil, fmt.Errorf("%s env variable not set: ENV", op)
+	}
+	if cfg.GRPCServer.APIKey == "" {
+		return nil, fmt.Errorf("%s env variable not set: API_KEY", op)
 	}
 	if cfg.Database.User == "" {
 		return nil, fmt.Errorf("%s env variable not set: DB_USER", op)
