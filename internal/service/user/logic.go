@@ -112,7 +112,7 @@ func (ul *UserLogic) Login(ctx context.Context, email, password string) (string,
 
 	log.Info("user logged successfully")
 
-	token, err := ul.jwtManger.NewToken(user)
+	token, err := ul.jwtManger.NewToken(user.ID)
 	if err != nil {
 		log.Error("failed to generate token", slog.Any("error", err))
 

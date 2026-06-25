@@ -35,7 +35,7 @@ func New(
 
 	userStorage := postgresql.NewUserStorage(storage.DB())
 
-	jwtManger := jwt.NewJWTManager(jwtSecret, tokenTTL)
+	jwtManger := jwt.NewJWTManager([]byte(jwtSecret), tokenTTL)
 
 	userLogic := userlogic.NewUserLogic(log, userStorage, userStorage, jwtManger)
 
