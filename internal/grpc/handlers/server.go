@@ -3,18 +3,18 @@ package handlersgrpc
 import (
 	"context"
 	"errors"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	commonv1 "github.com/alexgul25/protos/gen/go/common/v1"
 	userv1 "github.com/alexgul25/protos/gen/go/user/v1"
 	"github.com/alexgul25/user-svc/internal/domain/models"
 	"github.com/alexgul25/user-svc/internal/grpc/interceptors"
 	userlogic "github.com/alexgul25/user-svc/internal/service/user"
 	"github.com/alexgul25/user-svc/internal/storage"
+	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type UserService interface {
@@ -61,7 +61,7 @@ func (s *serverAPI) Register(ctx context.Context, in *userv1.RegisterRequest) (*
 		UserId:      user.ID,
 		DisplayName: user.DisplayName,
 		Email:       user.Email,
-		CreatedAt:   user.CreatedAt.Format(time.RFC3339),
+		CreatedAt:   timestamppb.New(user.CreatedAt),
 	}, nil
 }
 
@@ -86,7 +86,7 @@ func (s *serverAPI) Login(ctx context.Context, in *userv1.LoginRequest) (*userv1
 	return &userv1.LoginResponse{AccessToken: token}, nil
 }
 
-func (s *serverAPI) GetMyProfile(ctx context.Context, in *userv1.GetMyProfileRequest) (*userv1.ProfileResponse, error) {
+func (s *serverAPI) GetMyProfile(ctx context.Context, _ *emptypb.Empty) (*userv1.GetMyProfileResponse, error) {
 	userID, ok := interceptors.GetUserIDFromContext(ctx)
 	if !ok {
 		return nil, status.Error(codes.Unauthenticated, "user id is required")
@@ -97,15 +97,15 @@ func (s *serverAPI) GetMyProfile(ctx context.Context, in *userv1.GetMyProfileReq
 		return nil, status.Error(codes.Internal, "failed to get user profile")
 	}
 
-	return &userv1.ProfileResponse{
+	return &userv1.GetMyProfileResponse{
 		UserId:      user.ID,
 		Email:       user.Email,
 		DisplayName: user.DisplayName,
-		CreatedAt:   user.CreatedAt.Format(time.RFC3339),
+		CreatedAt:   timestamppb.New(user.CreatedAt),
 	}, nil
 }
 
-func (s *serverAPI) Subscribe(ctx context.Context, in *userv1.SubscribeRequest) (*commonv1.Empty, error) {
+func (s *serverAPI) Subscribe(ctx context.Context, in *userv1.SubscribeRequest) (*emptypb.Empty, error) {
 	followerID, ok := interceptors.GetUserIDFromContext(ctx)
 	if !ok {
 		return nil, status.Error(codes.Unauthenticated, "user id is required")
@@ -126,10 +126,10 @@ func (s *serverAPI) Subscribe(ctx context.Context, in *userv1.SubscribeRequest) 
 		return nil, status.Error(codes.Internal, "failed to subscribe user")
 	}
 
-	return &commonv1.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
-func (s *serverAPI) Unsubscribe(ctx context.Context, in *userv1.UnsubscribeRequest) (*commonv1.Empty, error) {
+func (s *serverAPI) Unsubscribe(ctx context.Context, in *userv1.UnsubscribeRequest) (*emptypb.Empty, error) {
 	followerID, ok := interceptors.GetUserIDFromContext(ctx)
 	if !ok {
 		return nil, status.Error(codes.Unauthenticated, "user id is required")
@@ -144,10 +144,10 @@ func (s *serverAPI) Unsubscribe(ctx context.Context, in *userv1.UnsubscribeReque
 			return nil, status.Error(codes.InvalidArgument, "cannot unsubscribe from yourself")
 		}
 
-		return nil, status.Error(codes.Internal, "failed to subscribe user")
+		return nil, status.Error(codes.Internal, "failed to unsubscribe user")
 	}
 
-	return &commonv1.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 func (s *serverAPI) GetFollowers(ctx context.Context, in *userv1.GetFollowersRequest) (*userv1.GetFollowersResponse, error) {
