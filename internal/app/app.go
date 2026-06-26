@@ -16,8 +16,8 @@ type StorageCloser interface {
 }
 
 type App struct {
-	GRPCServer *grpcapp.ServerApp
-	StorageCloser
+	grpcServer    *grpcapp.ServerApp
+	storageCloser StorageCloser
 }
 
 func New(
@@ -41,5 +41,17 @@ func New(
 
 	serverApp := grpcapp.New(log, userLogic, grpcPort, apiKey)
 
-	return &App{GRPCServer: serverApp, StorageCloser: storage}, nil
+	return &App{grpcServer: serverApp, storageCloser: storage}, nil
+}
+
+func (a *App) CloseStorage() error {
+	return a.storageCloser.Close()
+}
+
+func (a *App) RunServer() {
+	a.grpcServer.MustRun()
+}
+
+func (a *App) GracefulStop() {
+	a.grpcServer.GracefulStop()
 }

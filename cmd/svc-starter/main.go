@@ -35,14 +35,13 @@ func main() {
 		slog.Error("failed to create app", slog.Any("error", err))
 		os.Exit(1)
 	}
-	defer application.Close()
+	defer application.CloseStorage()
 
 	go func() {
-		application.GRPCServer.MustRun()
+		application.RunServer()
 	}()
 
 	<-appCtx.Done()
 
-	application.GRPCServer.Stop()
-	log.Info("grpc server gracefully stopped")
+	application.GracefulStop()
 }
