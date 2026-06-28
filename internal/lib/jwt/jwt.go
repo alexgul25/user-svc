@@ -1,4 +1,4 @@
-package jwt
+package jwtmanager
 
 import (
 	"time"
@@ -11,16 +11,16 @@ type TokenClaims struct {
 	UserID string `json:"user_id"`
 }
 
-type JWTManager struct {
+type Manager struct {
 	secret   []byte
 	tokenTTL time.Duration
 }
 
-func NewJWTManager(secret []byte, tokenTTL time.Duration) *JWTManager {
-	return &JWTManager{secret: secret, tokenTTL: tokenTTL}
+func New(secret []byte, tokenTTL time.Duration) *Manager {
+	return &Manager{secret: secret, tokenTTL: tokenTTL}
 }
 
-func (mngr *JWTManager) NewToken(userID string) (string, error) {
+func (mngr *Manager) NewToken(userID string) (string, error) {
 	claims := TokenClaims{
 		UserID: userID,
 		RegisteredClaims: jwt.RegisteredClaims{

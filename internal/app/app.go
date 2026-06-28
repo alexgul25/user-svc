@@ -6,7 +6,7 @@ import (
 	"time"
 
 	grpcapp "github.com/alexgul25/user-svc/internal/app/grpc"
-	"github.com/alexgul25/user-svc/internal/lib/jwt"
+	jwtmanager "github.com/alexgul25/user-svc/internal/lib/jwt"
 	userlogic "github.com/alexgul25/user-svc/internal/service/user"
 	"github.com/alexgul25/user-svc/internal/storage/postgresql"
 )
@@ -35,7 +35,7 @@ func New(
 
 	userStorage := postgresql.NewUserStorage(storage.DB())
 
-	jwtManger := jwt.NewJWTManager([]byte(jwtSecret), tokenTTL)
+	jwtManger := jwtmanager.New([]byte(jwtSecret), tokenTTL)
 
 	userLogic := userlogic.New(log, userStorage, userStorage, jwtManger)
 

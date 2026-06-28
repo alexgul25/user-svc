@@ -10,7 +10,7 @@ import (
 
 	"github.com/alexgul25/user-svc/internal/domain"
 	"github.com/alexgul25/user-svc/internal/domain/models"
-	"github.com/alexgul25/user-svc/internal/lib/jwt"
+	jwtmanager "github.com/alexgul25/user-svc/internal/lib/jwt"
 )
 
 type UserRepository interface {
@@ -29,14 +29,14 @@ type UserLogic struct {
 	log       *slog.Logger
 	usrRepo   UserRepository
 	subRepo   SubRepository
-	jwtManger *jwt.JWTManager
+	jwtManger *jwtmanager.Manager
 }
 
 func New(
 	log *slog.Logger,
 	usrRepo UserRepository,
 	subRepo SubRepository,
-	jwtManger *jwt.JWTManager,
+	jwtManger *jwtmanager.Manager,
 ) *UserLogic {
 	return &UserLogic{
 		log:       log,
