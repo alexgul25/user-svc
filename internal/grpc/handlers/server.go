@@ -7,14 +7,13 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	userv1 "github.com/alexgul25/protos/gen/go/user/v1"
-	"github.com/alexgul25/user-svc/internal/domain/models"
-	"github.com/alexgul25/user-svc/internal/grpc/interceptors"
-	userlogic "github.com/alexgul25/user-svc/internal/service/user"
-	"github.com/alexgul25/user-svc/internal/storage"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	userv1 "github.com/alexgul25/protos/gen/go/user/v1"
+	"github.com/alexgul25/user-svc/internal/domain"
+	"github.com/alexgul25/user-svc/internal/domain/models"
+	"github.com/alexgul25/user-svc/internal/grpc/interceptors"
 )
 
 type UserService interface {
@@ -50,7 +49,7 @@ func (s *serverAPI) Register(ctx context.Context, in *userv1.RegisterRequest) (*
 
 	user, err := s.userService.Register(ctx, in.GetDisplayName(), in.GetEmail(), in.GetPassword())
 	if err != nil {
-		if errors.Is(err, storage.ErrUserExists) {
+		if errors.Is(err, domain.ErrUserExists) {
 			return nil, status.Error(codes.AlreadyExists, "user already exists")
 		}
 
@@ -76,7 +75,7 @@ func (s *serverAPI) Login(ctx context.Context, in *userv1.LoginRequest) (*userv1
 
 	token, err := s.userService.Login(ctx, in.GetEmail(), in.GetPassword())
 	if err != nil {
-		if errors.Is(err, userlogic.ErrInvalidCredentials) {
+		if errors.Is(err, domain.ErrInvalidCredentials) {
 			return nil, status.Error(codes.InvalidArgument, "invalid email or password")
 		}
 
@@ -116,10 +115,10 @@ func (s *serverAPI) Subscribe(ctx context.Context, in *userv1.SubscribeRequest) 
 	}
 
 	if err := s.userService.Subscribe(ctx, followerID, in.GetFolloweeId()); err != nil {
-		if errors.Is(err, storage.ErrAlreadySubscribed) {
+		if errors.Is(err, domain.ErrAlreadySubscribed) {
 			return nil, status.Error(codes.InvalidArgument, "user has already subscribed")
 		}
-		if errors.Is(err, userlogic.ErrSelfSubscription) {
+		if errors.Is(err, domain.ErrSelfSubscription) {
 			return nil, status.Error(codes.InvalidArgument, "cannot subscribe to yourself")
 		}
 
@@ -140,7 +139,7 @@ func (s *serverAPI) Unsubscribe(ctx context.Context, in *userv1.UnsubscribeReque
 	}
 
 	if err := s.userService.Unsubscribe(ctx, followerID, in.GetFolloweeId()); err != nil {
-		if errors.Is(err, userlogic.ErrSelfSubscription) {
+		if errors.Is(err, domain.ErrSelfSubscription) {
 			return nil, status.Error(codes.InvalidArgument, "cannot unsubscribe from yourself")
 		}
 

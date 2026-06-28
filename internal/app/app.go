@@ -37,7 +37,7 @@ func New(
 
 	jwtManger := jwt.NewJWTManager([]byte(jwtSecret), tokenTTL)
 
-	userLogic := userlogic.NewUserLogic(log, userStorage, userStorage, jwtManger)
+	userLogic := userlogic.New(log, userStorage, userStorage, jwtManger)
 
 	serverApp := grpcapp.New(log, userLogic, grpcPort, apiKey)
 

@@ -9,8 +9,8 @@ import (
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/alexgul25/user-svc/internal/domain"
 	"github.com/alexgul25/user-svc/internal/domain/models"
-	"github.com/alexgul25/user-svc/internal/storage"
 )
 
 type UserStorage struct {
@@ -21,7 +21,7 @@ func NewUserStorage(db *sql.DB) *UserStorage {
 	return &UserStorage{db: db}
 }
 
-func (us *UserStorage) SaveUser(ctx context.Context, displayName, email string, passwordHash []byte) (models.User, error) {
+func (us *UserStorage) CreateUser(ctx context.Context, displayName, email string, passwordHash []byte) (models.User, error) {
 	const op = "postgresql.UserStorage.SaveUser"
 
 	query := `
@@ -36,7 +36,7 @@ func (us *UserStorage) SaveUser(ctx context.Context, displayName, email string, 
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
-			return models.User{}, fmt.Errorf("%s: %w", op, storage.ErrUserExists)
+			return models.User{}, fmt.Errorf("%s: %w", op, domain.ErrUserExists)
 		}
 
 		return models.User{}, fmt.Errorf("%s: %w", op, err)
@@ -59,7 +59,7 @@ func (us *UserStorage) GetUserByEmail(ctx context.Context, email string) (models
 	err := row.Scan(&user.ID, &user.DisplayName, &user.PasswordHash, &user.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return models.User{}, fmt.Errorf("%s: %w", op, storage.ErrUserNotFound)
+			return models.User{}, fmt.Errorf("%s: %w", op, domain.ErrUserNotFound)
 		}
 
 		return models.User{}, fmt.Errorf("%s: %w", op, err)
@@ -82,7 +82,7 @@ func (us *UserStorage) GetUserByID(ctx context.Context, userID string) (models.U
 	err := row.Scan(&user.DisplayName, &user.Email, &user.PasswordHash, &user.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return models.User{}, fmt.Errorf("%s: %w", op, storage.ErrUserNotFound)
+			return models.User{}, fmt.Errorf("%s: %w", op, domain.ErrUserNotFound)
 		}
 
 		return models.User{}, fmt.Errorf("%s: %w", op, err)
@@ -103,7 +103,7 @@ func (us *UserStorage) Subscribe(ctx context.Context, followerID, followeeID str
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
-			return fmt.Errorf("%s: %w", op, storage.ErrAlreadySubscribed)
+			return fmt.Errorf("%s: %w", op, domain.ErrAlreadySubscribed)
 		}
 
 		return fmt.Errorf("%s: %w", op, err)

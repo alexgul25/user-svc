@@ -6,20 +6,15 @@ import (
 	"fmt"
 	"log/slog"
 
+	"golang.org/x/crypto/bcrypt"
+
+	"github.com/alexgul25/user-svc/internal/domain"
 	"github.com/alexgul25/user-svc/internal/domain/models"
 	"github.com/alexgul25/user-svc/internal/lib/jwt"
-	"github.com/alexgul25/user-svc/internal/storage"
-
-	"golang.org/x/crypto/bcrypt"
-)
-
-var (
-	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrSelfSubscription   = errors.New("cannot subscribe to yourself")
 )
 
 type UserRepository interface {
-	SaveUser(ctx context.Context, displayName string, email string, passwordHash []byte) (user models.User, err error)
+	CreateUser(ctx context.Context, displayName string, email string, passwordHash []byte) (user models.User, err error)
 	GetUserByEmail(ctx context.Context, email string) (models.User, error)
 	GetUserByID(ctx context.Context, userID string) (models.User, error)
 }
@@ -37,7 +32,7 @@ type UserLogic struct {
 	jwtManger *jwt.JWTManager
 }
 
-func NewUserLogic(
+func New(
 	log *slog.Logger,
 	usrRepo UserRepository,
 	subRepo SubRepository,
@@ -68,7 +63,7 @@ func (ul *UserLogic) Register(ctx context.Context, displayName, email, password 
 		return models.User{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	user, err := ul.usrRepo.SaveUser(ctx, displayName, email, passwordHash)
+	user, err := ul.usrRepo.CreateUser(ctx, displayName, email, passwordHash)
 	if err != nil {
 		log.Error("failed to save user", slog.Any("error", err))
 
@@ -93,10 +88,10 @@ func (ul *UserLogic) Login(ctx context.Context, email, password string) (string,
 
 	user, err := ul.usrRepo.GetUserByEmail(ctx, email)
 	if err != nil {
-		if errors.Is(err, storage.ErrUserNotFound) {
+		if errors.Is(err, domain.ErrUserNotFound) {
 			log.Warn("user not found", slog.Any("error", err))
 
-			return "", fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
+			return "", fmt.Errorf("%s: %w", op, domain.ErrInvalidCredentials)
 		}
 
 		log.Error("failed to get user", slog.Any("error", err))
@@ -107,7 +102,7 @@ func (ul *UserLogic) Login(ctx context.Context, email, password string) (string,
 	if err := bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(password)); err != nil {
 		log.Info("invalid credentials", slog.Any("error", err))
 
-		return "", fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
+		return "", fmt.Errorf("%s: %w", op, domain.ErrInvalidCredentials)
 	}
 
 	log.Info("user logged successfully")
@@ -158,7 +153,7 @@ func (ul *UserLogic) Subscribe(ctx context.Context, followerID, followeeID strin
 
 	if followeeID == followerID {
 		log.Warn("self subscription attempt")
-		return fmt.Errorf("%s: %w", op, ErrSelfSubscription)
+		return fmt.Errorf("%s: %w", op, domain.ErrSelfSubscription)
 	}
 
 	if err := ul.subRepo.Subscribe(ctx, followerID, followeeID); err != nil {
@@ -185,7 +180,7 @@ func (ul *UserLogic) Unsubscribe(ctx context.Context, followerID, followeeID str
 
 	if followeeID == followerID {
 		log.Warn("self subscription attempt")
-		return fmt.Errorf("%s: %w", op, ErrSelfSubscription)
+		return fmt.Errorf("%s: %w", op, domain.ErrSelfSubscription)
 	}
 
 	if err := ul.subRepo.Unsubscribe(ctx, followerID, followeeID); err != nil {
