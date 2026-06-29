@@ -17,15 +17,17 @@ type ServerApp struct {
 	port       int
 }
 
-func New(log *slog.Logger, userService handlersgrpc.UserService, port int, apiKey string) *ServerApp {
+func New(log *slog.Logger, userService handlersgrpc.UserService, port int, servicesWithEmailHidden []string) *ServerApp {
+	headersToLog := []string{interceptors.HeaderServiceName}
+	headersToEnrich := []string{interceptors.HeaderServiceName, interceptors.HeaderUserID}
+
 	gRPCServer := grpc.NewServer(grpc.ChainUnaryInterceptor(
 		interceptors.NewRecoveryInterceptor(log),
-		interceptors.NewLoggingInterceptor(log),
-		interceptors.NewValidationInterceptor(apiKey),
-		interceptors.NewContextEnricherInterceptor(),
+		interceptors.NewLoggingInterceptor(log, headersToLog),
+		interceptors.NewContextEnricherInterceptor(headersToEnrich),
 	))
 
-	handlersgrpc.Register(gRPCServer, userService)
+	handlersgrpc.Register(gRPCServer, userService, servicesWithEmailHidden)
 
 	return &ServerApp{
 		log:        log,

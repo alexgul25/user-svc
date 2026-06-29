@@ -29,7 +29,7 @@ func main() {
 		cfg.GRPCServer.Port,
 		cfg.Database.User, cfg.Database.Password, cfg.Database.Host, cfg.Database.DbName, cfg.Database.Port,
 		cfg.JWT.Secret, cfg.JWT.TokenTTL,
-		cfg.GRPCServer.APIKey,
+		cfg.GRPCServer.ServicesWithEmailHidden,
 	)
 	if err != nil {
 		slog.Error("failed to create app", slog.Any("error", err))

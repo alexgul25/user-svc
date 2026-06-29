@@ -3,6 +3,7 @@ package handlersgrpc
 import (
 	"context"
 	"errors"
+	"slices"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -27,11 +28,18 @@ type UserService interface {
 
 type serverAPI struct {
 	userv1.UnimplementedUserServiceServer
-	userService UserService
+	userService             UserService
+	servicesWithEmailHidden []string
 }
 
-func Register(gRPCServer *grpc.Server, userServer UserService) {
-	userv1.RegisterUserServiceServer(gRPCServer, &serverAPI{userService: userServer})
+func Register(gRPCServer *grpc.Server, userServer UserService, servicesWithEmailHidden []string) {
+	userv1.RegisterUserServiceServer(
+		gRPCServer,
+		&serverAPI{
+			userService:             userServer,
+			servicesWithEmailHidden: servicesWithEmailHidden,
+		},
+	)
 }
 
 func (s *serverAPI) Register(ctx context.Context, in *userv1.RegisterRequest) (*userv1.RegisterResponse, error) {
@@ -164,13 +172,18 @@ func (s *serverAPI) GetFollowers(ctx context.Context, in *userv1.GetFollowersReq
 		return nil, status.Error(codes.Internal, "failed to get user followers")
 	}
 
+	return s.toGetFollowersResponse(followers, serviceName), nil
+}
+
+func (s *serverAPI) toGetFollowersResponse(followers []models.Follower, callerService string) *userv1.GetFollowersResponse {
+	hideEmail := slices.Contains(s.servicesWithEmailHidden, callerService)
 	grpcFollowers := make([]*userv1.Follower, len(followers))
 	for i, follower := range followers {
-		if serviceName == "gateway-svc" {
+		if hideEmail {
 			follower.Email = ""
 		}
 		grpcFollowers[i] = &userv1.Follower{UserId: follower.ID, DisplayName: follower.DisplayName, Email: follower.Email}
 	}
 
-	return &userv1.GetFollowersResponse{Followers: grpcFollowers}, nil
+	return &userv1.GetFollowersResponse{Followers: grpcFollowers}
 }

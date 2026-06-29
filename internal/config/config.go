@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -24,9 +25,10 @@ type DatabaseConfig struct {
 }
 
 type GRPCServerConfig struct {
-	Port            int           `envconfig:"GRPCSERVER_PORT" env-default:"50051"`
-	GracefulTimeout time.Duration `envconfig:"GRACEFUL_TIMEOUT" env-default:"10s"`
-	APIKey          string        `envconfig:"API_KEY"`
+	Port                       int           `envconfig:"GRPCSERVER_PORT" env-default:"50051"`
+	GracefulTimeout            time.Duration `envconfig:"GRACEFUL_TIMEOUT" env-default:"10s"`
+	servicesWithEmailHiddenRaw string        `envconfig:"SERVICES_WITH_EMAIL_HIDDEN"`
+	ServicesWithEmailHidden    []string
 }
 
 type JWTConfig struct {
@@ -61,9 +63,6 @@ func LoadUserService() (*Config, error) {
 	if cfg.Env == "" {
 		return nil, fmt.Errorf("%s env variable not set: ENV", op)
 	}
-	if cfg.GRPCServer.APIKey == "" {
-		return nil, fmt.Errorf("%s env variable not set: API_KEY", op)
-	}
 	if cfg.Database.User == "" {
 		return nil, fmt.Errorf("%s env variable not set: DB_USER", op)
 	}
@@ -82,6 +81,8 @@ func LoadUserService() (*Config, error) {
 	if cfg.JWT.Secret == "" {
 		return nil, fmt.Errorf("%s env variable not set: JWT_SECRET", op)
 	}
+
+	cfg.GRPCServer.ServicesWithEmailHidden = strings.Split(cfg.GRPCServer.servicesWithEmailHiddenRaw, ",")
 
 	return cfg, nil
 }

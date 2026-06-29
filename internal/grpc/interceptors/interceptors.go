@@ -3,7 +3,6 @@ package interceptors
 import (
 	"context"
 	"log/slog"
-	"slices"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
@@ -13,20 +12,10 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// all headers: "x-api-key", "x-service-name", "x-user-id"
-var (
-	loggedHeaders     = []string{"x-service-name"}
-	forContextHeaders = []string{"x-service-name", "x-user-id"}
+const (
+	HeaderServiceName = "x-service-name"
+	HeaderUserID      = "x-user-id"
 )
-
-var methodAccess = map[string][]string{
-	"/user.v1.UserService/Register":     {"gateway-svc"},
-	"/user.v1.UserService/Login":        {"gateway-svc"},
-	"/user.v1.UserService/GetMyProfile": {"gateway-svc"},
-	"/user.v1.UserService/Subscribe":    {"gateway-svc"},
-	"/user.v1.UserService/Unsubscribe":  {"gateway-svc"},
-	"/user.v1.UserService/GetFollowers": {"gateway-svc", "notification-svc"},
-}
 
 func NewRecoveryInterceptor(log *slog.Logger) grpc.UnaryServerInterceptor {
 	recoveryOpts := []recovery.Option{
@@ -60,7 +49,7 @@ func interceptorLogger(log *slog.Logger) logging.Logger {
 	})
 }
 
-func NewLoggingInterceptor(log *slog.Logger) grpc.UnaryServerInterceptor {
+func NewLoggingInterceptor(log *slog.Logger, headersToLog []string) grpc.UnaryServerInterceptor {
 	loggingOpts := []logging.Option{
 		logging.WithFieldsFromContext(func(ctx context.Context) logging.Fields {
 			md, ok := metadata.FromIncomingContext(ctx)
@@ -69,7 +58,7 @@ func NewLoggingInterceptor(log *slog.Logger) grpc.UnaryServerInterceptor {
 			}
 
 			fields := logging.Fields{}
-			for _, header := range loggedHeaders {
+			for _, header := range headersToLog {
 				if values := md.Get(header); len(values) != 0 {
 					fields = append(fields, header, values[0])
 				}
@@ -82,35 +71,16 @@ func NewLoggingInterceptor(log *slog.Logger) grpc.UnaryServerInterceptor {
 	return logging.UnaryServerInterceptor(interceptorLogger(log), loggingOpts...)
 }
 
-func NewValidationInterceptor(apiKey string) grpc.UnaryServerInterceptor {
+func NewContextEnricherInterceptor(headersToEnrich []string) grpc.UnaryServerInterceptor {
 	return grpc.UnaryServerInterceptor(
 		func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
 			md, ok := metadata.FromIncomingContext(ctx)
-			if !ok {
-				return nil, status.Error(codes.Unauthenticated, "metadata is required")
-			}
-
-			values := md.Get("x-api-key")
-			if len(values) == 0 {
-				return nil, status.Error(codes.Unauthenticated, "missing required header: x-api-key")
-			}
-			receivedKey := values[0]
-			if receivedKey != apiKey {
-				return nil, status.Error(codes.Unauthenticated, "wrong api key")
-			}
-
-			values = md.Get("x-service-name")
-			if len(values) == 0 {
-				return nil, status.Error(codes.Unauthenticated, "missing required header: x-service-name")
-			}
-			receivedName := values[0]
-			allowedNames, ok := methodAccess[info.FullMethod]
-			if !ok {
-				return nil, status.Error(codes.PermissionDenied, "unknown method")
-			}
-
-			if !slices.Contains(allowedNames, receivedName) {
-				return nil, status.Error(codes.PermissionDenied, "your service not allowed to call this method")
+			if ok {
+				for _, header := range headersToEnrich {
+					if values := md.Get(header); len(values) > 0 && values[0] != "" {
+						ctx = context.WithValue(ctx, ctxKey(header), values[0])
+					}
+				}
 			}
 
 			return handler(ctx, req)
@@ -121,28 +91,11 @@ func NewValidationInterceptor(apiKey string) grpc.UnaryServerInterceptor {
 type ctxKey string
 
 func GetServiceNameFromContext(ctx context.Context) (string, bool) {
-	res, ok := ctx.Value(ctxKey("x-service-name")).(string)
+	res, ok := ctx.Value(ctxKey(HeaderServiceName)).(string)
 	return res, ok
 }
 
 func GetUserIDFromContext(ctx context.Context) (string, bool) {
-	res, ok := ctx.Value(ctxKey("x-user-id")).(string)
+	res, ok := ctx.Value(ctxKey(HeaderUserID)).(string)
 	return res, ok
-}
-
-func NewContextEnricherInterceptor() grpc.UnaryServerInterceptor {
-	return grpc.UnaryServerInterceptor(
-		func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
-			md, ok := metadata.FromIncomingContext(ctx)
-			if ok {
-				for _, header := range forContextHeaders {
-					if values := md.Get(header); len(values) > 0 && values[0] != "" {
-						ctx = context.WithValue(ctx, ctxKey(header), values[0])
-					}
-				}
-			}
-
-			return handler(ctx, req)
-		},
-	)
 }
