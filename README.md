@@ -6,25 +6,23 @@
 
 ## Основные возможности
 
-- Регистрация новых пользователей (метод `Register` - доступен через **API Gateway** без JWT токена)
+**User Service** предназначен только для внутреннего межсервисного взаимодействия и не должен быть доступен пользователям напрямую. Все запросы от конечных пользователей принимает **Gateway Service**.
 
-- Выдача access-токенов пользователям при успешной аутентификации (метод `Login` - доступен через **API Gateway** без JWT токена)
+- Регистрация новых пользователей (метод `Register` - вызывается через **API Gateway**, для этого пользователю НЕ нужен JWT-токен)
 
-- Получение информации о своём профиле (метод `GetMyProfile` - доступен через **API Gateway** с JWT токеном)
+- Выдача access-токенов пользователям при успешной аутентификации (метод `Login` - вызывается через **API Gateway**, для этого пользователю НЕ нужен JWT-токен)
 
-- Подписка на других пользователей (метод `Subscribe` - доступен через **API Gateway** с JWT токеном)
+- Получение информации о своём профиле (метод `GetMyProfile` - вызывается через **API Gateway**, для этого пользователю нужен JWT-токен)
 
-- Отмена своей подписки (метод `Unsubscribe` - доступен через **API Gateway** с JWT токеном)
+- Подписка на других пользователей (метод `Subscribe` - вызывается через **API Gateway**, для этого пользователю нужен JWT-токен)
 
-- Получение списка подписчиков пользователя (метод `GetFollowers` - доступен через **API Gateway** с JWT токеном и через **Notification Service**)
+- Отмена своей подписки (метод `Unsubscribe` - вызывается через **API Gateway**, для этого пользователю нужен JWT-токен)
+
+- Получение списка подписчиков пользователя (метод `GetFollowers` - вызывается через **API Gateway**, для этого пользователю нужен JWT-токен, из которого извлекается `user_id` для запроса (на данном этапе пользователь может смотреть только своих подписчиков); также вызывается через **Notification Service** (может получить подписчиков любого пользователя) по внутренней сети при создании нового места в **Wishlist Service**)
 
 **Важно!** Сам **User Service** только генерирует и возвращает новые JWT токены для успешно залогинившихся пользователей. Токены, переданные пользователем, должны проверяться в сервисе **API Gateway**, который при успешной аутентификации отправляет gRPC запросы с конкретными данными в **User Service**.
 
-Все запросы для **User Service** должны передавать заголовки:
-
-- `x-api-key` - общий для всех сервисов секрет для внутренней аутентификации, задаётся через переменную окружения (см. [.env.example](.env.example))
-
-- `x-service-name` - имя сервиса, вызывающего метод
+Все запросы для **User Service** должны передавать заголовок `x-service-name` - имя сервиса, вызывающего метод
 
 Для методов, требующих идентификации через JWT токен, необходимо передавать заголовок `x-user-id`
 
@@ -184,7 +182,7 @@ git clone git@github.com:alexgul25/protos.git
 
 Перейдите в папку **protos**, созданную при клонировании репозитория
 
-Затем создайте бинарный файл **user_service_v1.protoset** с помощью утилиты `make` (если вы изменили .proto-файлы, эту команду нужно будет повторить снова)
+Затем, находясь в папке `protos`, создайте бинарный файл **user_service_v1.protoset** с помощью утилиты `make` (если вы изменили .proto-файлы, эту команду нужно будет повторить снова)
 
 ```bash
 make protoset
@@ -192,70 +190,64 @@ make protoset
 
 Протестируйте сервер. Ниже приведены примеры готовых запросов (**Важно!** В приведённых ниже командах адрес **user_service_v1.protoset** прописан с учётом того, что вы находитесь  в папке, созданной при [подготовке к локальному запуску](#0-подготовка))
 
-- Зарегистрировать пользователя (вставьте ваш api_key)
+- Зарегистрировать пользователя
 
 ```bash
 grpcurl -plaintext \
   -protoset protos/user_service_v1.protoset \
-  -H 'x-api-key: <ваш api_key>' \
   -H 'x-service-name: gateway-svc' \
   -d '{"email":"alex@example.com","password":"secret123","display_name":"Alex"}' \
   localhost:50051 user.v1.UserService/Register
 ```
 
-- Выдать новый токен пользователю при успешной аутентификации (вставьте ваш api_key)
+- Выдать новый токен пользователю при успешной аутентификации
 
 ```bash
 grpcurl -plaintext \
   -protoset protos/user_service_v1.protoset \
-  -H 'x-api-key: <ваш api_key>' \
   -H 'x-service-name: gateway-svc' \
   -d '{"email":"alex@example.com","password":"secret123"}' \
   localhost:50051 user.v1.UserService/Login
 ```
 
-- Получить свой профиль (вставьте ваш api_key и id пользователя)
+- Получить свой профиль (вставьте id пользователя)
 
 ```bash
 grpcurl -plaintext \
   -protoset protos/user_service_v1.protoset \
-  -H 'x-api-key: <ваш api_key>' \
   -H 'x-service-name: gateway-svc' \
   -H 'x-user-id: <ваш user_id>' \
   -d '{}' \
   localhost:50051 user.v1.UserService/GetMyProfile
 ```
 
-- Подписаться на другого пользователя (вставьте ваш api_key, id пользователя и id целевого пользователя)
+- Подписаться на другого пользователя (вставьте id пользователя и id целевого пользователя)
 
 ```bash
 grpcurl -plaintext \
   -protoset protos/user_service_v1.protoset \
-  -H 'x-api-key: <ваш api_key>' \
   -H 'x-service-name: gateway-svc' \
   -H 'x-user-id: <ваш user_id>' \
   -d '{"followee_id":"<ваш followee_id>"}' \
   localhost:50051 user.v1.UserService/Subscribe
 ```
 
-- Отписаться от другого пользователя (вставьте ваш api_key, id пользователя и id целевого пользователя)
+- Отписаться от другого пользователя (вставьте id пользователя и id целевого пользователя)
 
 ```bash
 grpcurl -plaintext \
   -protoset protos/user_service_v1.protoset \
-  -H 'x-api-key: <ваш api_key>' \
   -H 'x-service-name: gateway-svc' \
   -H 'x-user-id: <ваш user_id>' \
   -d '{"followee_id":"<ваш followee_id>"}' \
   localhost:50051 user.v1.UserService/Unsubscribe
 ```
 
-- Получить список подписчиков пользователя (вставьте ваш api_key, id пользователя и имя сервиса (notification-svc - вывод вместе с email; gateway-svc - вывод без email))
+- Получить список подписчиков пользователя (вставьте id пользователя и имя сервиса (см. значения [SERVICES_WITH_EMAIL_HIDDEN](.env.example) для ответа с email или без))
 
 ```bash
 grpcurl -plaintext \
   -protoset protos/user_service_v1.protoset \
-  -H 'x-api-key: <ваш api_key>' \
   -H 'x-service-name: <имя сервиса>' \
   -d '{"user_id":"<ваш user_id>"}' \
   localhost:50051 user.v1.UserService/GetFollowers
