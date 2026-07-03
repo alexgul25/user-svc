@@ -60,9 +60,9 @@ func (sa *ServerApp) Run() error {
 }
 
 func (sa *ServerApp) GracefulStop() {
-	const op = "ServerApp.Stop"
+	const op = "ServerApp.GracefulStop"
 
-	sa.log.With(slog.String("op", op)).Info("stopping grpc server", slog.Int("port", sa.port))
+	sa.log.With(slog.String("source", op)).Info("stopping grpc server", slog.Int("port", sa.port))
 
 	sa.gRPCServer.GracefulStop()
 

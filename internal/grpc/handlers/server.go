@@ -43,15 +43,15 @@ func Register(gRPCServer *grpc.Server, userServer UserService, servicesWithEmail
 }
 
 func (s *serverAPI) Register(ctx context.Context, in *userv1.RegisterRequest) (*userv1.RegisterResponse, error) {
-	if in.DisplayName == "" {
+	if in.GetDisplayName() == "" {
 		return nil, status.Error(codes.InvalidArgument, "name is required")
 	}
 
-	if in.Email == "" {
+	if in.GetEmail() == "" {
 		return nil, status.Error(codes.InvalidArgument, "email is required")
 	}
 
-	if in.Password == "" {
+	if in.GetPassword() == "" {
 		return nil, status.Error(codes.InvalidArgument, "password is required")
 	}
 
@@ -73,11 +73,11 @@ func (s *serverAPI) Register(ctx context.Context, in *userv1.RegisterRequest) (*
 }
 
 func (s *serverAPI) Login(ctx context.Context, in *userv1.LoginRequest) (*userv1.LoginResponse, error) {
-	if in.Email == "" {
+	if in.GetEmail() == "" {
 		return nil, status.Error(codes.InvalidArgument, "email is required")
 	}
 
-	if in.Password == "" {
+	if in.GetPassword() == "" {
 		return nil, status.Error(codes.InvalidArgument, "password is required")
 	}
 
@@ -113,13 +113,13 @@ func (s *serverAPI) GetMyProfile(ctx context.Context, _ *emptypb.Empty) (*userv1
 }
 
 func (s *serverAPI) Subscribe(ctx context.Context, in *userv1.SubscribeRequest) (*emptypb.Empty, error) {
+	if in.GetFolloweeId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "followee id is required")
+	}
+
 	followerID, ok := interceptors.GetUserIDFromContext(ctx)
 	if !ok {
 		return nil, status.Error(codes.Unauthenticated, "user id is required")
-	}
-
-	if in.FolloweeId == "" {
-		return nil, status.Error(codes.InvalidArgument, "followee id is required")
 	}
 
 	if err := s.userService.Subscribe(ctx, followerID, in.GetFolloweeId()); err != nil {
@@ -137,13 +137,13 @@ func (s *serverAPI) Subscribe(ctx context.Context, in *userv1.SubscribeRequest) 
 }
 
 func (s *serverAPI) Unsubscribe(ctx context.Context, in *userv1.UnsubscribeRequest) (*emptypb.Empty, error) {
+	if in.GetFolloweeId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "followee id is required")
+	}
+
 	followerID, ok := interceptors.GetUserIDFromContext(ctx)
 	if !ok {
 		return nil, status.Error(codes.Unauthenticated, "user id is required")
-	}
-
-	if in.FolloweeId == "" {
-		return nil, status.Error(codes.InvalidArgument, "followee id is required")
 	}
 
 	if err := s.userService.Unsubscribe(ctx, followerID, in.GetFolloweeId()); err != nil {
@@ -158,13 +158,13 @@ func (s *serverAPI) Unsubscribe(ctx context.Context, in *userv1.UnsubscribeReque
 }
 
 func (s *serverAPI) GetFollowers(ctx context.Context, in *userv1.GetFollowersRequest) (*userv1.GetFollowersResponse, error) {
+	if in.GetUserId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "user id is required")
+	}
+
 	serviceName, ok := interceptors.GetServiceNameFromContext(ctx)
 	if !ok {
 		return nil, status.Error(codes.Unauthenticated, "missing service name")
-	}
-
-	if in.UserId == "" {
-		return nil, status.Error(codes.InvalidArgument, "user id is required")
 	}
 
 	followers, err := s.userService.GetFollowers(ctx, in.GetUserId())
