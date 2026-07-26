@@ -1,54 +1,71 @@
-# User Service (user-svc)
+# :busts_in_silhouette: User Service
 
-Микросервис для проекта **Date Wishlist Hub**, отвечает за данные о пользователях и подписках.  
+Микросервис для проекта **Date Wishlist Hub**.
 
-Стек: `Go`  `gRPC`  `PostgreSQL`
+Ссылка на центральный репозиторий проекта: **[Date Wishlist Hub Deploy](https://github.com/alexgul25/date-wishlist-hub-deploy)**
 
-## Основные возможности
+Ссылка на канбан-доску проекта: **[Date Wishlist Hub - Development](https://github.com/users/alexgul25/projects/2)**
 
-Все `.proto` контракты хранятся в репозитории :point_right: [protos](https://github.com/alexgul25/protos).
+*Стек технологий сервиса:* `Go`  `gRPC`  `PostgreSQL`
 
-**User Service** предназначен только для внутреннего межсервисного взаимодействия и не должен быть доступен пользователям напрямую. Все запросы от конечных пользователей принимает [Gateway Service](https://github.com/alexgul25/gateway-svc).
+## :bulb: Описание сервиса
 
-- Регистрация новых пользователей (метод `Register` - вызывается через **Gateway Service**, для этого пользователю НЕ нужен JWT-токен)
+**User Service** - внутренний gRPC-сервер, организующий логику работы с данными о пользователях и подписках.
 
-- Выдача access-токенов пользователям при успешной аутентификации (метод `Login` - вызывается через **Gateway Service**, для этого пользователю НЕ нужен JWT-токен)
+- Protobuf-контракты определены публично в **[Protos](https://github.com/alexgul25/protos)**.
 
-- Получение информации о своём профиле (метод `GetMyProfile` - вызывается через **Gateway Service**, для этого пользователю нужен JWT-токен)
+- Только генерация новых JWT-токенов, проверка существующих делегирована **[Gateway Service](https://github.com/alexgul25/gateway-svc)**.
 
-- Подписка на других пользователей (метод `Subscribe` - вызывается через **Gateway Service**, для этого пользователю нужен JWT-токен)
+- В качестве БД используется `PostgreSQL`.
 
-- Отмена своей подписки (метод `Unsubscribe` - вызывается через **Gateway Service**, для этого пользователю нужен JWT-токен)
+- Методы **не должны** быть доступны пользователям напрямую (см. [архитектуру проекта](https://github.com/alexgul25/date-wishlist-hub-deploy#building_construction-архитектура-проекта)).
 
-- Получение списка подписчиков пользователя (метод `GetFollowers` - вызывается через **Gateway Service**, для этого пользователю нужен JWT-токен (можно смотреть подписчиков любых пользователей); также вызывается через **Notification Service** (может получить подписчиков любого пользователя) по внутренней сети при создании нового места в [Place Service](https://github.com/alexgul25/place-svc))
+***Таблица gRPC-методов.***
 
-**Важно!** Сам **User Service** только генерирует и возвращает новые JWT токены для успешно залогинившихся пользователей. Токены, переданные пользователем, должны проверяться в **Gateway Service**, который при успешной аутентификации отправляет gRPC-запросы с конкретными данными в **User Service**.
+| Method Name  | Auth | Calling service  | Info                                                                                    |
+| :----------: | :--: | :--------------: | --------------------------------------------------------------------------------------- |
+| Register     | ❌   | Gateway Service  | Регистрация нового пользователя                                                         |
+| Login        | ❌   | Gateway Service  | Аутентификация зарегестрированного пользователя, возвращает JWT-токен                   |
+| GetMyProfile | ✅   | Gateway Service  | Получение данных собственного профиля пользователя                                      |
+| Subscribe    | ✅   | Gateway Service  | Подписка на другого пользователя                                                        |
+| Unsubscribe  | ✅   | Gateway Service  | Отписка от другого пользователя                                                         |
+| GetFollowers | ✅   | Gateway Service  | Получение пользователем списка подписчиков другого пользователя по его ID (email скрыт) |
+| GetFollowers | -    | Notify Service   | Получение внутренним сервисом списка подписчиков пользователя по его ID                 |
 
-Все запросы для **User Service** должны передавать заголовок `x-service-name` - имя сервиса, вызывающего метод
+<!-- markdownlint-disable MD033 -->
+<details>
+<summary>Примечания</summary>
 
-Для методов, требующих идентификации через JWT токен, необходимо передавать заголовок `x-user-id`
+- Все запросы для **User Service** должны передавать заголовок `x-service-name` - имя сервиса, вызывающего метод (Calling service).
 
-## Архитектура
+- Заполненный столбец `Auth` указывает:
+    1. вызов метода инициирован пользователем;
+    2. ✅ и ❌ - соответственно нужен или не нужен JWT-токен для успешного вызова.
 
-Основные компоненты структуры
+- Для методов, требующих идентификации через JWT-токен, необходимо передавать заголовок `x-user-id`.
 
-- Команды для запуска приложения ([./cmd](./cmd/))
+</details>
+<!-- markdownlint-enable MD033 -->
 
-- Код для запуска различных компонентов приложения ([./internal/app](./internal/app/))
+## :gear: Структура сервиса
 
-- Структуры данных и модели домена ([./internal/domain/models](./internal/domain/models/))
+:open_file_folder: [./cmd](./cmd/) - команды для запуска приложения.
 
-- **gPRC-хэндлеры** ([./internal/grpc/handlers](./internal/grpc/handlers/))
+:open_file_folder: [./migrations](./migrations/) - миграции для БД.
 
-- gRPC-интерсепторы ([./internal/grpc/interceptors](./internal/grpc/interceptors/))
+:open_file_folder: [./internal/app](./internal/app/) - код для запуска различных компонентов приложения.
 
-- Общие вспомогательные утилиты и функции ([./internal/lib](./internal/lib/))
+:open_file_folder: [./internal/domain](./internal/domain/) - структуры данных и модели домена.
 
-- **Сервисный слой (бизнес-логика)** ([./internal/service](./internal/service/))
+:open_file_folder: [./internal/grpc/handlers](./internal/grpc/handlers/) - **gPRC-хэндлеры**.
 
-- **Слой хранения данных** ([./internal/storage](./internal/storage/))
+:open_file_folder: [./internal/grpc/interceptors](./internal/grpc/interceptors/) - gRPC-интерсепторы.
 
-- Миграции для БД ([./migrations](./migrations/))
+:open_file_folder: [./internal/lib](./internal/lib/) - общие вспомогательные утилиты и функции.
+
+:open_file_folder: [./internal/service](./internal/service/) - **сервисный слой (бизнес-логика)**.
+
+:open_file_folder: [./internal/storage](./internal/storage/) - **слой хранения данных**.
 
 ## Локальная установка и запуск
 
