@@ -21,6 +21,7 @@ type UserService interface {
 	Register(ctx context.Context, displayName, email, password string) (user models.User, err error)
 	Login(ctx context.Context, email, password string) (token string, err error)
 	GetMyProfile(ctx context.Context, userID string) (models.User, error)
+	FindUsersByDisplayName(ctx context.Context, searchQuery string) ([]models.PublicUser, error)
 	Subscribe(ctx context.Context, followerID, followeeID string) error
 	Unsubscribe(ctx context.Context, followerID, followeeID string) error
 	GetFollowers(ctx context.Context, userID string) ([]models.Follower, error)
@@ -110,6 +111,29 @@ func (s *serverAPI) GetMyProfile(ctx context.Context, _ *emptypb.Empty) (*userv1
 		DisplayName: user.DisplayName,
 		CreatedAt:   timestamppb.New(user.CreatedAt),
 	}, nil
+}
+
+func (s *serverAPI) FindUsersByDisplayName(ctx context.Context, in *userv1.FindUsersByDisplayNameRequest) (*userv1.FindUsersByDisplayNameResponse, error) {
+	if in.GetSearchQuery() == "" {
+		return nil, status.Error(codes.InvalidArgument, "search query is required")
+	}
+
+	_, ok := interceptors.GetUserIDFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "user id is required")
+	}
+
+	publicUsers, err := s.userService.FindUsersByDisplayName(ctx, in.GetSearchQuery())
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to find users by display name")
+	}
+
+	grpcUsers := make([]*userv1.User, len(publicUsers))
+	for i, u := range publicUsers {
+		grpcUsers[i] = &userv1.User{UserId: u.ID, DisplayName: u.DisplayName, CreatedAt: timestamppb.New(u.CreatedAt)}
+	}
+
+	return &userv1.FindUsersByDisplayNameResponse{Users: grpcUsers}, nil
 }
 
 func (s *serverAPI) Subscribe(ctx context.Context, in *userv1.SubscribeRequest) (*emptypb.Empty, error) {

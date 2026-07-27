@@ -17,6 +17,7 @@ type UserRepository interface {
 	CreateUser(ctx context.Context, displayName string, email string, passwordHash []byte) (user models.User, err error)
 	GetUserByEmail(ctx context.Context, email string) (models.User, error)
 	GetUserByID(ctx context.Context, userID string) (models.User, error)
+	GetUsersByDisplayName(ctx context.Context, searchQuery string) (users []models.PublicUser, err error)
 }
 
 type SubRepository interface {
@@ -138,6 +139,28 @@ func (ul *UserLogic) GetMyProfile(ctx context.Context, userID string) (models.Us
 	log.Info("got user successfully")
 
 	return user, nil
+}
+
+func (ul *UserLogic) FindUsersByDisplayName(ctx context.Context, searchQuery string) ([]models.PublicUser, error) {
+	const op = "UserLogic.FindUsersByDisplayName"
+
+	log := ul.log.With(
+		slog.String("op", op),
+		slog.String("search_query", searchQuery),
+	)
+
+	log.Info("attempting to find users by display name")
+
+	users, err := ul.usrRepo.GetUsersByDisplayName(ctx, searchQuery)
+	if err != nil {
+		log.Error("failed to find users by display name", slog.Any("error", err))
+
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	log.Info("got users by display name successfully")
+
+	return users, nil
 }
 
 func (ul *UserLogic) Subscribe(ctx context.Context, followerID, followeeID string) error {

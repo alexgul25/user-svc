@@ -3,7 +3,7 @@ module github.com/alexgul25/user-svc
 go 1.25.7
 
 require (
-	github.com/alexgul25/protos v0.0.0-20260626211642-d5d1bbe74327
+	github.com/alexgul25/protos v0.0.0-20260726211012-eac4f0208f25
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.3
 	github.com/jackc/pgerrcode v0.0.0-20250907135507-afb5586c32a6

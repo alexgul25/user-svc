@@ -1,5 +1,7 @@
 github.com/alexgul25/protos v0.0.0-20260626211642-d5d1bbe74327 h1:XXyJDBNtBKHx3hFErUaSqeEIGAwJOsuxwqpWeELztmk=
 github.com/alexgul25/protos v0.0.0-20260626211642-d5d1bbe74327/go.mod h1:7mHsMhN+mBQXMBId4kDfOLLbKZH1d32tWOR3sfr4G+s=
+github.com/alexgul25/protos v0.0.0-20260726211012-eac4f0208f25 h1:AYappi73WYKwvpx40IX3VIlkZW32MwiDHNYZwt5nOhE=
+github.com/alexgul25/protos v0.0.0-20260726211012-eac4f0208f25/go.mod h1:7mHsMhN+mBQXMBId4kDfOLLbKZH1d32tWOR3sfr4G+s=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
