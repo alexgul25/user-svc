@@ -149,12 +149,6 @@ func (ul *UserLogic) FindUsersByDisplayName(ctx context.Context, searchQuery str
 		slog.String("search_query", searchQuery),
 	)
 
-	if searchQuery == "" {
-		log.Warn("empty search query")
-
-		return nil, fmt.Errorf("%s: %w", op, domain.ErrInvalidArgument)
-	}
-
 	log.Info("attempting to find users by display name")
 
 	users, err := ul.usrRepo.GetUsersByDisplayName(ctx, searchQuery)
