@@ -10,6 +10,12 @@ type User struct {
 	CreatedAt    time.Time
 }
 
+type PublicUser struct {
+	ID          string
+	DisplayName string
+	CreatedAt   time.Time
+}
+
 type Follower struct {
 	ID          string // UUID
 	DisplayName string

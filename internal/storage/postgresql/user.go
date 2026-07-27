@@ -91,6 +91,39 @@ func (us *UserStorage) GetUserByID(ctx context.Context, userID string) (models.U
 	return user, nil
 }
 
+func (us *UserStorage) GetUsersByDisplayName(ctx context.Context, searchQuery string) ([]models.PublicUser, error) {
+	const op = "postgresql.UserStorage.GetUsersByDisplayName"
+
+	query := `
+		SELECT id, display_name, created_at
+		FROM users
+		WHERE display_name ILIKE CONCAT($1, '%')
+	`
+
+	rows, err := us.db.QueryContext(ctx, query, searchQuery)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	defer rows.Close()
+
+	users := []models.PublicUser{}
+	for rows.Next() {
+		var user models.PublicUser
+
+		if err := rows.Scan(&user.ID, &user.DisplayName, &user.CreatedAt); err != nil {
+			return nil, fmt.Errorf("%s: %w", op, err)
+		}
+
+		users = append(users, user)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return users, nil
+}
+
 func (us *UserStorage) Subscribe(ctx context.Context, followerID, followeeID string) error {
 	const op = "postgresql.UserStorage.Subscribe"
 

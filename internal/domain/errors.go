@@ -3,6 +3,7 @@ package domain
 import "errors"
 
 var (
+	ErrInvalidArgument    = errors.New("invalid argument")
 	ErrUserExists         = errors.New("user already exists")
 	ErrUserNotFound       = errors.New("user not found")
 	ErrAlreadySubscribed  = errors.New("user already subscribed")
