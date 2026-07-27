@@ -22,15 +22,16 @@
 
 ***Таблица gRPC-методов.***
 
-| Method Name  | Auth | Calling service  | Info                                                                                    |
-| :----------: | :--: | :--------------: | --------------------------------------------------------------------------------------- |
-| Register     | ❌   | Gateway Service  | Регистрация нового пользователя                                                         |
-| Login        | ❌   | Gateway Service  | Аутентификация зарегестрированного пользователя, возвращает JWT-токен                   |
-| GetMyProfile | ✅   | Gateway Service  | Получение данных собственного профиля пользователя                                      |
-| Subscribe    | ✅   | Gateway Service  | Подписка на другого пользователя                                                        |
-| Unsubscribe  | ✅   | Gateway Service  | Отписка от другого пользователя                                                         |
-| GetFollowers | ✅   | Gateway Service  | Получение пользователем списка подписчиков другого пользователя по его ID (email скрыт) |
-| GetFollowers | -    | Notify Service   | Получение внутренним сервисом списка подписчиков пользователя по его ID                 |
+| Method Name            | Auth | Calling service  | Info                                                                                |
+| :--------------------: | :--: | :--------------: | ----------------------------------------------------------------------------------- |
+| Register               | ❌   | Gateway Service  | Регистрация нового пользователя                                                     |
+| Login                  | ❌   | Gateway Service  | Аутентификация зарегестрированного пользователя, возвращает JWT-токен               |
+| GetMyProfile           | ✅   | Gateway Service  | Получение данных собственного профиля пользователя                                  |
+| FindUsersByDisplayName | ✅   | Gateway Service  | Поиск пользователей по отображаемому имени                                          |
+| Subscribe              | ✅   | Gateway Service  | Подписка на другого пользователя                                                    |
+| Unsubscribe            | ✅   | Gateway Service  | Отписка от другого пользователя                                                     |
+| GetFollowers           | ✅   | Gateway Service  | Получение пользователем списка подписок другого пользователя по ID (email скрыт)    |
+| GetFollowers           | -    | Notify Service   | Получение внутренним сервисом списка подписок пользователя по ID                    |
 
 <!-- markdownlint-disable MD033 -->
 <details>
