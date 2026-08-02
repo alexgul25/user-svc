@@ -97,7 +97,7 @@ func (us *UserStorage) GetUsersByDisplayName(ctx context.Context, searchQuery st
 	query := `
 		SELECT id, display_name, created_at
 		FROM users
-		WHERE display_name ILIKE CONCAT($1, '%')
+		WHERE display_name ILIKE CONCAT($1::text, '%')
 	`
 
 	rows, err := us.db.QueryContext(ctx, query, searchQuery)
