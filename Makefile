@@ -42,7 +42,7 @@ protoset:
 		echo "❌  Папка $(PROTOS_DIR) не найдена, клонируйте репозиторий protos согласно README"; \
 		exit 1; \
 	fi
-	@$(MAKE) -C $(PROTOS_DIR) protoset
+	@$(MAKE) -C $(PROTOS_DIR) protoset-user
 	@echo "✅  Protoset обновлён: $(PROTOSET)"
 
 # Проверка наличия protoset перед вызовами
