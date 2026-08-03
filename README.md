@@ -90,7 +90,7 @@
 
 ***ВАЖНО!*** Репозитории должны быть клонированы **в одну и ту же папку**.
 
-Клонируйте репозиторий **User Service** c помощью HTTP или SSH.
+- Клонируйте репозиторий **User Service** c помощью HTTP или SSH.
 
 ```bash
 git clone https://github.com/alexgul25/user-svc.git
@@ -100,7 +100,7 @@ git clone https://github.com/alexgul25/user-svc.git
 git clone git@github.com:alexgul25/user-svc.git
 ```
 
-Также клонируйте репозиторий **[Protos](https://github.com/alexgul25/protos)** с помощью HTTP или SSH. С его помощью будет сгенерирован protoset-файл, необходимый для отправки gRPC-запросов через терминал (он нужен, поскольку User Service не поддерживает reflection).
+- Клонируйте репозиторий **[Protos](https://github.com/alexgul25/protos)** с помощью HTTP или SSH. С его помощью будет сгенерирован protoset-файл, необходимый для отправки gRPC-запросов через терминал (он нужен, поскольку User Service не поддерживает reflection).
 
 ```bash
 git clone https://github.com/alexgul25/protos.git
