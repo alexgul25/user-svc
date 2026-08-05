@@ -50,23 +50,23 @@
 
 ## :gear: Структура сервиса
 
-:open_file_folder: [./cmd](./cmd/) - команды для запуска приложения.
+:open_file_folder: **[./cmd](./cmd/)** - команды для запуска приложения.
 
-:open_file_folder: [./migrations](./migrations/) - миграции для БД.
+:open_file_folder: **[./migrations](./migrations/)** - миграции для БД.
 
-:open_file_folder: [./internal/app](./internal/app/) - код для запуска различных компонентов приложения.
+:open_file_folder: **[./internal/app](./internal/app/)** - код для запуска различных компонентов приложения.
 
-:open_file_folder: [./internal/domain](./internal/domain/) - структуры данных и модели домена.
+:open_file_folder: **[./internal/domain](./internal/domain/)** - структуры данных и модели домена.
 
-:open_file_folder: [./internal/grpc/handlers](./internal/grpc/handlers/) - **gPRC-хэндлеры**.
+:open_file_folder: **[./internal/grpc/handlers](./internal/grpc/handlers/)** - **gPRC-хэндлеры**.
 
-:open_file_folder: [./internal/grpc/interceptors](./internal/grpc/interceptors/) - gRPC-интерсепторы.
+:open_file_folder: **[./internal/grpc/interceptors](./internal/grpc/interceptors/)** - gRPC-интерсепторы.
 
-:open_file_folder: [./internal/lib](./internal/lib/) - общие вспомогательные утилиты и функции.
+:open_file_folder: **[./internal/lib](./internal/lib/)** - общие вспомогательные утилиты и функции.
 
-:open_file_folder: [./internal/service](./internal/service/) - **сервисный слой (бизнес-логика)**.
+:open_file_folder: **[./internal/service](./internal/service/)** - **сервисный слой (бизнес-логика)**.
 
-:open_file_folder: [./internal/storage](./internal/storage/) - **слой хранения данных**.
+:open_file_folder: **[./internal/storage](./internal/storage/)** - **слой хранения данных**.
 
 ## :desktop_computer: Локальный запуск и работа через терминал
 
