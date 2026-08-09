@@ -19,23 +19,27 @@ USER_ID := $(shell cat $(USER_FILE) 2>/dev/null)
 
 GRPCURL := grpcurl -plaintext -protoset $(PROTOSET)
 
-.PHONY: help protoset run-svc set-user register login me search subscribe unsubscribe \
-        my-followers followers-public followers-internal clean
+BINARY := ./bin/svc-starter
+
+.PHONY: help protoset run-svc set-user \
+		register login me search \
+		subscribe unsubscribe my-followers followers-public followers-internal \
+		clean
 
 help:
 	@echo "Доступные команды:"
-	@echo "  make protoset       - Сгенерировать protoset (запускается в ../protos)"
-	@echo "  make run-svc        - Запустить User Service (go run)"
-	@echo "  make set-user       - Сохранить ID пользователя (вспомогательная команда)"
-	@echo "  make register       - Регистрация нового пользователя и сохранение ID"
-	@echo "  make login          - Аутентификация пользователя"
-	@echo "  make me             - Показать свой профиль"
-	@echo "  make search         - Поиск пользователей по имени"
-	@echo "  make subscribe      - Подписаться на пользователя"
-	@echo "  make unsubscribe    - Отписаться от пользователя"
-	@echo "  make my-followers   - Список своих подписчиков"
-	@echo "  make followers      - Список подписчиков пользователя по ID"
-	@echo "  make clean          - Удалить сохранённый ID"
+	@echo "  make protoset         - Генерация protoset в $(PROTOS_DIR)"
+	@echo "  make run-svc          - Запуск сервиса (go build)"
+	@echo "  make set-user         - Сохранение ID в $(USER_ID) (для моделирования запросов от лица пользователя)"
+	@echo "  make register         - Регистрация пользователя и сохранение ID в $(USER_ID)"
+	@echo "  make login            - Аутентификация пользователя (без сохранения ID в $(USER_ID))"
+	@echo "  make me               - Показать свой профиль (используется сохранённый ID)"
+	@echo "  make search           - Поиск пользователей по имени"
+	@echo "  make subscribe        - Подписаться на пользователя"
+	@echo "  make unsubscribe      - Отписаться от пользователя"
+	@echo "  make my-followers     - Список своих подписчиков (используется сохранённый ID)"
+	@echo "  make followers        - Список подписчиков пользователя по ID"
+	@echo "  make clean            - Удалить $(USER_ID) с сохранённым ID"
 
 protoset:
 	@if [ ! -d $(PROTOS_DIR) ]; then \
@@ -52,9 +56,19 @@ _check_protoset:
 		exit 1; \
 	}
 
-run-svc:
-	@echo "🚀  Применение миграций и запуск User Service..."
-	@go run ./cmd/migrator/main.go && go run ./cmd/svc-starter/main.go; exit 0
+run-svc: _check_protoset
+	@echo "⚙️  Применение миграций..."
+	@go run ./cmd/migrator/main.go
+	@echo "🔨  Сборка сервиса..."
+	@mkdir -p ./bin
+	@go build -o $(BINARY) ./cmd/svc-starter/
+	@echo "🚀  Запуск User Service..."
+	@$(BINARY); exit 0
+
+stop-svc:
+	@echo "🛑  Остановка User Service..."
+	@echo "Поиск процесса $(BINARY)"
+	@pkill -INT -f '$(BINARY)' && echo "✅  Сигнал отправлен" || echo "❌  Процесс не найден"
 
 set-user:
 	@echo "Определение пользователя, от лица которого будут отправляться запросы"; \
