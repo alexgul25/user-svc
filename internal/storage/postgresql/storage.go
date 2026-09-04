@@ -17,7 +17,7 @@ func NewStorage(dbUser, dbPassword, dbHost, dbName string, dbPort int) (*Storage
 	connStr := fmt.Sprintf("postgres://%s:%s@%s:%d/%s", dbUser, dbPassword, dbHost, dbPort, dbName)
 	db, err := sql.Open("pgx", connStr)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %v\n", op, err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return &Storage{db}, nil
@@ -25,6 +25,10 @@ func NewStorage(dbUser, dbPassword, dbHost, dbName string, dbPort int) (*Storage
 
 func (s *Storage) DB() *sql.DB {
 	return s.db
+}
+
+func (s *Storage) Ping() error {
+	return s.db.Ping()
 }
 
 func (s *Storage) Close() error {
