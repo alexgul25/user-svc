@@ -33,6 +33,11 @@ func New(
 		return nil, fmt.Errorf("failed to init storage: %w", err)
 	}
 
+	if err := storage.Ping(); err != nil {
+		storage.Close()
+		return nil, fmt.Errorf("failed to ping storage: %w", err)
+	}
+
 	userStorage := postgresql.NewUserStorage(storage.DB())
 
 	jwtManger := jwtmanager.New([]byte(jwtSecret), tokenTTL)
