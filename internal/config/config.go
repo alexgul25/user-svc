@@ -25,15 +25,15 @@ type DatabaseConfig struct {
 }
 
 type GRPCServerConfig struct {
-	Port                       int           `envconfig:"GRPCSERVER_PORT" env-default:"50051"`
-	GracefulTimeout            time.Duration `envconfig:"GRACEFUL_TIMEOUT" env-default:"10s"`
+	Port                       int           `envconfig:"GRPCSERVER_PORT" default:"50051"`
+	GracefulTimeout            time.Duration `envconfig:"GRACEFUL_TIMEOUT" default:"10s"`
 	ServicesWithEmailHiddenRaw string        `envconfig:"SERVICES_WITH_EMAIL_HIDDEN"`
 	ServicesWithEmailHidden    []string
 }
 
 type JWTConfig struct {
 	Secret   string        `envconfig:"JWT_SECRET"`
-	TokenTTL time.Duration `envconfig:"JWT_ACCESS_TTL" env-default:"24h"`
+	TokenTTL time.Duration `envconfig:"JWT_ACCESS_TTL" default:"24h"`
 }
 
 func load() (*Config, error) {
