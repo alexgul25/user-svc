@@ -3,9 +3,9 @@ package app
 import (
 	"fmt"
 	"log/slog"
-	"time"
 
 	grpcapp "github.com/alexgul25/user-svc/internal/app/grpc"
+	"github.com/alexgul25/user-svc/internal/config"
 	jwtmanager "github.com/alexgul25/user-svc/internal/lib/jwt"
 	userlogic "github.com/alexgul25/user-svc/internal/service/user"
 	"github.com/alexgul25/user-svc/internal/storage/postgresql"
@@ -20,15 +20,8 @@ type App struct {
 	storageCloser StorageCloser
 }
 
-func New(
-	log *slog.Logger,
-	grpcPort int,
-	dbUser, dbPassword, dbHost, dbName string, dbPort int,
-	jwtSecret string,
-	tokenTTL time.Duration,
-	servicesWithEmailHidden []string,
-) (*App, error) {
-	storage, err := postgresql.NewStorage(dbUser, dbPassword, dbHost, dbName, dbPort)
+func New(log *slog.Logger, cfg *config.Config) (*App, error) {
+	storage, err := postgresql.NewStorage(cfg.Database.DSN())
 	if err != nil {
 		return nil, fmt.Errorf("failed to init storage: %w", err)
 	}
@@ -40,11 +33,11 @@ func New(
 
 	userStorage := postgresql.NewUserStorage(storage.DB())
 
-	jwtManger := jwtmanager.New([]byte(jwtSecret), tokenTTL)
+	jwtManger := jwtmanager.New([]byte(cfg.JWT.Secret), cfg.JWT.TokenTTL)
 
 	userLogic := userlogic.New(log, userStorage, userStorage, jwtManger)
 
-	serverApp := grpcapp.New(log, userLogic, grpcPort, servicesWithEmailHidden)
+	serverApp := grpcapp.New(log, userLogic, cfg.GRPCServer.Port, cfg.GRPCServer.ServicesWithEmailHidden)
 
 	return &App{grpcServer: serverApp, storageCloser: storage}, nil
 }

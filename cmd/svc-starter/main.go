@@ -24,13 +24,7 @@ func main() {
 
 	log := logger.New(cfg.Env)
 
-	application, err := app.New(
-		log,
-		cfg.GRPCServer.Port,
-		cfg.Database.User, cfg.Database.Password, cfg.Database.Host, cfg.Database.DbName, cfg.Database.Port,
-		cfg.JWT.Secret, cfg.JWT.TokenTTL,
-		cfg.GRPCServer.ServicesWithEmailHidden,
-	)
+	application, err := app.New(log, cfg)
 	if err != nil {
 		slog.Error("failed to create app", slog.Any("error", err))
 		os.Exit(1)
