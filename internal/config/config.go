@@ -1,7 +1,9 @@
 package config
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"strings"
 	"time"
 
@@ -40,7 +42,7 @@ func load() (*Config, error) {
 	const op = "load"
 
 	err := godotenv.Load()
-	if err != nil {
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
