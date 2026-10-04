@@ -11,11 +11,10 @@ type Storage struct {
 	db *sql.DB
 }
 
-func NewStorage(dbUser, dbPassword, dbHost, dbName string, dbPort int) (*Storage, error) {
+func NewStorage(dsn string) (*Storage, error) {
 	const op = "Storage.NewStorage"
 
-	connStr := fmt.Sprintf("postgres://%s:%s@%s:%d/%s", dbUser, dbPassword, dbHost, dbPort, dbName)
-	db, err := sql.Open("pgx", connStr)
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
