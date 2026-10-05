@@ -16,6 +16,7 @@
 - Только генерация новых JWT-токенов, проверка существующих делегирована **[Gateway Service](https://github.com/alexgul25/gateway-svc)**.
 - В качестве БД используется `PostgreSQL`.
 - Методы **не должны** быть доступны пользователям напрямую (см. [архитектуру проекта](https://github.com/alexgul25/date-wishlist-hub-deploy#building_construction-архитектура-проекта)).
+
 ***Таблица gRPC-методов.***
 
 | Method Name            | Auth | Calling service  | Info                                                                                |
@@ -32,13 +33,16 @@
 <!-- markdownlint-disable MD033 -->
 <details>
 <summary>Примечания</summary>
+
 - Все запросы для **User Service** должны передавать заголовок `x-service-name` - имя сервиса, вызывающего метод (Calling service).
 - Заполненный столбец `Auth` указывает:
     1. вызов метода инициирован пользователем;
     2. ✅ и ❌ - соответственно нужен или не нужен JWT-токен для успешного вызова.
 - Для методов, требующих идентификации через JWT-токен, необходимо передавать заголовок `x-user-id`.
+
 </details>
 <!-- markdownlint-enable MD033 -->
+
 ## :gear: Структура сервиса
 
 :open_file_folder: **[./cmd](./cmd/)** - команды для запуска приложения.
@@ -137,8 +141,10 @@ openssl rand -base64 32
 <!-- markdownlint-disable MD033 -->
 <details>
 <summary>Особенности .env при запуске в Docker</summary>
+
 - Значения указывайте без кавычек: Docker передаёт их в контейнер как есть, вместе с кавычками.
 - `localhost` в `DB_HOST` внутри контейнера означает сам контейнер, а не вашу машину (см. подсказки к варианту запуска в Docker в [следующем шаге](#4-запуск-и-работа)).
+
 </details>
 <!-- markdownlint-enable MD033 -->
 
@@ -166,11 +172,13 @@ openssl rand -base64 32
 <!-- markdownlint-disable MD033 -->
 <details>
 <summary>Подсказки</summary>
+
 - Флаг `--network host` запускает контейнер в сети вашей машины: `localhost` в `DB_HOST` указывает на локальный PostgreSQL, а gRPC-сервер доступен на `localhost:<GRPCSERVER_PORT>`, поэтому команды Makefile для отправки запросов работают без изменений. Режим работает в Docker Engine на Linux (в том числе в WSL2).
 - Если PostgreSQL доступен контейнеру по сети (например, запущен в другом контейнере), вместо `--network host` опубликуйте порт сервера: `-p <порт>:<порт>`, где порт совпадает с `GRPCSERVER_PORT`, и укажите в `DB_HOST` адрес сервера PostgreSQL.
 - Если при сборке не удаётся скачать Go-модули (например, `proxy.golang.org` недоступен), передайте другой прокси через аргумент сборки: `docker build --build-arg GOPROXY=https://goproxy.io,direct -t user-svc .`
 - Чтобы запустить контейнер в фоне, замените `--rm` на `-d`. Логи сервиса можно посмотреть командой `docker logs -f user-svc`, остановить и удалить контейнер - командами `docker stop user-svc` и `docker rm user-svc`.
 - Проверить состояние запущенного сервиса можно командой `docker exec user-svc /bin/grpc_health_probe -addr=:<порт>`, где порт совпадает с `GRPCSERVER_PORT`. Сервис отвечает по стандартному протоколу gRPC Health Checking.
+
 </details>
 <!-- markdownlint-enable MD033 -->
 
