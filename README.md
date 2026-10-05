@@ -170,6 +170,7 @@ openssl rand -base64 32
 - Если PostgreSQL доступен контейнеру по сети (например, запущен в другом контейнере), вместо `--network host` опубликуйте порт сервера: `-p <порт>:<порт>`, где порт совпадает с `GRPCSERVER_PORT`, и укажите в `DB_HOST` адрес сервера PostgreSQL.
 - Если при сборке не удаётся скачать Go-модули (например, `proxy.golang.org` недоступен), передайте другой прокси через аргумент сборки: `docker build --build-arg GOPROXY=https://goproxy.io,direct -t user-svc .`
 - Чтобы запустить контейнер в фоне, замените `--rm` на `-d`. Логи сервиса можно посмотреть командой `docker logs -f user-svc`, остановить и удалить контейнер - командами `docker stop user-svc` и `docker rm user-svc`.
+- Проверить состояние запущенного сервиса можно командой `docker exec user-svc /bin/grpc_health_probe -addr=:<порт>`, где порт совпадает с `GRPCSERVER_PORT`. Сервис отвечает по стандартному протоколу gRPC Health Checking.
 </details>
 <!-- markdownlint-enable MD033 -->
 
