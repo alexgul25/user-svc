@@ -33,7 +33,8 @@ override USER_ID = $(shell cat $(USER_FILE) 2>/dev/null | tr -d '\r\n')
 .PHONY: help protoset build migrate run run-only \
 		set-user register login me search subscribe unsubscribe my-followers followers-public followers-internal \
 		clean clean-id clean-bin print-config \
-		_check_tools _check_protoset _check_user
+		_check_tools _check_protoset _check_user \
+		test test-cover
 
 help: ## Показать список доступных команд
 	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -55,6 +56,12 @@ build: ## Собрать бинарник сервиса
 	@mkdir -p "$(BIN_DIR)"
 	@go build -o "$(BINARY)" $(SERVER_CMD)
 	@echo "✅  Собран $(BINARY)"
+
+test: ## Запустить тесты
+	@go test ./...
+
+test-cover: ## Запустить тесты и показать покрытие
+	@go test -cover ./...
 
 run: migrate build ## Применить миграции, собрать бинарник и запустить сервис
 	@echo "🚀  Запуск $(SERVICE_NAME)..."
