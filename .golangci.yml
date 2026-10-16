@@ -29,6 +29,12 @@ linters:
     presets:
       # Не требовать проверки ошибок у Close, Flush, fmt.Print* и т.п. в defer.
       - std-error-handling
+    rules:
+      # G101 (пароль в коде) в тестах срабатывает на тестовые данные: пароли, секреты, DSN.
+      - path: _test\.go
+        linters:
+          - gosec
+        text: G101
 
 formatters:
   enable:
