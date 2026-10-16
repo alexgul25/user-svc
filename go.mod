@@ -13,7 +13,7 @@ require (
 	github.com/lmittmann/tint v1.1.3
 	github.com/pressly/goose/v3 v3.27.1
 	golang.org/x/crypto v0.58.0
-	google.golang.org/grpc v1.81.1
+	google.golang.org/grpc v1.84.0
 	google.golang.org/protobuf v1.36.11
 )
 
@@ -28,5 +28,5 @@ require (
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260420184626-e10c466a9529 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260706201446-f0a921348800 // indirect
 )
