@@ -29,7 +29,11 @@ func main() {
 		slog.Error("failed to create app", slog.Any("error", err))
 		os.Exit(1)
 	}
-	defer application.CloseStorage()
+	defer func() {
+		if err := application.CloseStorage(); err != nil {
+			log.Error("failed to close storage", slog.Any("error", err))
+		}
+	}()
 
 	go func() {
 		application.RunServer()
