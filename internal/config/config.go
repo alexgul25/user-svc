@@ -97,7 +97,17 @@ func LoadUserService() (*Config, error) {
 		return nil, fmt.Errorf("%s: env variable JWT_SECRET not set", op)
 	}
 
-	cfg.GRPCServer.ServicesWithEmailHidden = strings.Split(cfg.GRPCServer.ServicesWithEmailHiddenRaw, ",")
+	cfg.GRPCServer.ServicesWithEmailHidden = splitList(cfg.GRPCServer.ServicesWithEmailHiddenRaw)
 
 	return cfg, nil
+}
+
+func splitList(raw string) []string {
+	var items []string
+	for item := range strings.SplitSeq(raw, ",") {
+		if item = strings.TrimSpace(item); item != "" {
+			items = append(items, item)
+		}
+	}
+	return items
 }
