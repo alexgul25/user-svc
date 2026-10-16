@@ -47,11 +47,11 @@ func TestNewToken_Claims(t *testing.T) {
 
 	// Время в JWT хранится с точностью до секунды, поэтому сравниваем с допуском.
 	const tolerance = 2 * time.Second
-	if diff := claims.IssuedAt.Time.Sub(before); diff < -tolerance || diff > tolerance {
+	if diff := claims.IssuedAt.Sub(before); diff < -tolerance || diff > tolerance {
 		t.Errorf("issued at %v, want about %v", claims.IssuedAt.Time, before)
 	}
 	wantExpiry := before.Add(ttl)
-	if diff := claims.ExpiresAt.Time.Sub(wantExpiry); diff < -tolerance || diff > tolerance {
+	if diff := claims.ExpiresAt.Sub(wantExpiry); diff < -tolerance || diff > tolerance {
 		t.Errorf("expires at %v, want about %v", claims.ExpiresAt.Time, wantExpiry)
 	}
 }

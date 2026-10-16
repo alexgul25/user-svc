@@ -1,5 +1,7 @@
 # :busts_in_silhouette: User Service
 
+[![CI](https://github.com/alexgul25/user-svc/actions/workflows/ci.yml/badge.svg)](https://github.com/alexgul25/user-svc/actions/workflows/ci.yml)
+
 Микросервис для проекта **Date Wishlist Hub**.
 
 Ссылка на центральный репозиторий проекта: **[Date Wishlist Hub Deploy](https://github.com/alexgul25/date-wishlist-hub-deploy)**
@@ -79,6 +81,8 @@
 - компилятор Protocol Buffers (`protoc`);
 - утилита `grpcurl`;
 - утилита `jq`;
+- компилятор `gcc` (пакет `build-essential`) - для тестов с детектором гонок;
+- утилита `golangci-lint` (v2) - для проверки кода;
 - утилита `make`.
 
 ### 2. Клонирование нужных репозиториев
@@ -190,4 +194,11 @@ openssl rand -base64 32
 - `make login` - авторизуйтесь (возвращает JWT-токен, который должен проверяться в **[Gateway Service](https://github.com/alexgul25/gateway-svc)**).
 - `make set-user` - установить ID конкретного пользователя.
 - `make search`, `make subscribe` и т.д. - вызывайте gRPC-методы.
-- `make clean` - выполните, чтобы удалить сохранённые бинарник и ID пользователя.
+- `make clean` - выполните, чтобы удалить сохранённые бинарник, ID пользователя и отчёты о покрытии.
+
+#### Проверка кода
+
+- `make test` - запустите тесты с детектором гонок.
+- `make test-cover` - соберите отчёт о покрытии (`coverage.html`).
+- `make lint` - запустите линтеры.
+- `make ci` - запустите все проверки CI локально.

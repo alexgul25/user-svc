@@ -264,7 +264,7 @@ func TestLogin_Success(t *testing.T) {
 
 	// Срок действия токена: примерно "сейчас + TTL" (время в JWT хранится с точностью до секунды).
 	wantExpiry := before.Add(testTokenTTL)
-	if diff := claims.ExpiresAt.Time.Sub(wantExpiry); diff < -2*time.Second || diff > 2*time.Second {
+	if diff := claims.ExpiresAt.Sub(wantExpiry); diff < -2*time.Second || diff > 2*time.Second {
 		t.Errorf("token expires at %v, want about %v", claims.ExpiresAt.Time, wantExpiry)
 	}
 }
