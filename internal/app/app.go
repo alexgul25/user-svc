@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 
@@ -20,13 +21,13 @@ type App struct {
 	storageCloser StorageCloser
 }
 
-func New(log *slog.Logger, cfg *config.Config) (*App, error) {
+func New(ctx context.Context, log *slog.Logger, cfg *config.Config) (*App, error) {
 	storage, err := postgresql.NewStorage(cfg.Database.DSN())
 	if err != nil {
 		return nil, fmt.Errorf("failed to init storage: %w", err)
 	}
 
-	if err := storage.Ping(); err != nil {
+	if err := storage.Ping(ctx); err != nil {
 		storage.Close()
 		return nil, fmt.Errorf("failed to ping storage: %w", err)
 	}
