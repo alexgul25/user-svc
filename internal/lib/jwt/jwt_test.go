@@ -78,3 +78,22 @@ func TestNewToken_Expired(t *testing.T) {
 		t.Error("expired token was accepted")
 	}
 }
+
+func TestNewToken_SigningMethod(t *testing.T) {
+	token, err := jwtmanager.New([]byte(secret), ttl).NewToken(userID)
+	if err != nil {
+		t.Fatalf("NewToken returned error: %v", err)
+	}
+
+	// Gateway проверяет токены, ожидая именно HS256: смена алгоритма сломает авторизацию.
+	parsed, _, err := jwt.NewParser().ParseUnverified(token, &jwtmanager.TokenClaims{})
+	if err != nil {
+		t.Fatalf("failed to parse token: %v", err)
+	}
+	if parsed.Method != jwt.SigningMethodHS256 {
+		t.Errorf("signing method = %v, want HS256", parsed.Method.Alg())
+	}
+	if alg := parsed.Header["alg"]; alg != "HS256" {
+		t.Errorf("header alg = %v, want HS256", alg)
+	}
+}
