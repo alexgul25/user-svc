@@ -13,6 +13,7 @@ linters:
     - gosec # типовые проблемы безопасности
     - misspell # опечатки в английских словах в комментариях и строках
     - nilerr # возврат nil вместо проверенной ошибки
+    - noctx # сетевые вызовы и запросы к БД принимают context
     - nolintlint # директивы //nolint с указанием линтера и причины
     - rowserrcheck # после обхода sql.Rows проверяется rows.Err()
     - sqlclosecheck # sql.Rows и sql.Stmt закрываются
