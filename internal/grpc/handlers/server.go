@@ -44,16 +44,14 @@ func Register(gRPCServer *grpc.Server, userServer UserService, servicesWithEmail
 }
 
 func (s *serverAPI) Register(ctx context.Context, in *userv1.RegisterRequest) (*userv1.RegisterResponse, error) {
-	if in.GetDisplayName() == "" {
-		return nil, status.Error(codes.InvalidArgument, "name is required")
+	if err := validateText("name", in.GetDisplayName()); err != nil {
+		return nil, err
 	}
-
-	if in.GetEmail() == "" {
-		return nil, status.Error(codes.InvalidArgument, "email is required")
+	if err := validateText("email", in.GetEmail()); err != nil {
+		return nil, err
 	}
-
-	if in.GetPassword() == "" {
-		return nil, status.Error(codes.InvalidArgument, "password is required")
+	if err := validatePassword(in.GetPassword()); err != nil {
+		return nil, err
 	}
 
 	user, err := s.userService.Register(ctx, in.GetDisplayName(), in.GetEmail(), in.GetPassword())
@@ -74,12 +72,11 @@ func (s *serverAPI) Register(ctx context.Context, in *userv1.RegisterRequest) (*
 }
 
 func (s *serverAPI) Login(ctx context.Context, in *userv1.LoginRequest) (*userv1.LoginResponse, error) {
-	if in.GetEmail() == "" {
-		return nil, status.Error(codes.InvalidArgument, "email is required")
+	if err := validateText("email", in.GetEmail()); err != nil {
+		return nil, err
 	}
-
-	if in.GetPassword() == "" {
-		return nil, status.Error(codes.InvalidArgument, "password is required")
+	if err := validatePassword(in.GetPassword()); err != nil {
+		return nil, err
 	}
 
 	token, err := s.userService.Login(ctx, in.GetEmail(), in.GetPassword())
@@ -95,13 +92,17 @@ func (s *serverAPI) Login(ctx context.Context, in *userv1.LoginRequest) (*userv1
 }
 
 func (s *serverAPI) GetMyProfile(ctx context.Context, _ *emptypb.Empty) (*userv1.GetMyProfileResponse, error) {
-	userID, ok := interceptors.GetUserIDFromContext(ctx)
-	if !ok {
-		return nil, status.Error(codes.Unauthenticated, "user id is required")
+	userID, err := requireUserID(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	user, err := s.userService.GetMyProfile(ctx, userID)
 	if err != nil {
+		if errors.Is(err, domain.ErrUserNotFound) {
+			return nil, status.Error(codes.NotFound, "user not found")
+		}
+
 		return nil, status.Error(codes.Internal, "failed to get user profile")
 	}
 
@@ -114,13 +115,11 @@ func (s *serverAPI) GetMyProfile(ctx context.Context, _ *emptypb.Empty) (*userv1
 }
 
 func (s *serverAPI) FindUsersByDisplayName(ctx context.Context, in *userv1.FindUsersByDisplayNameRequest) (*userv1.FindUsersByDisplayNameResponse, error) {
-	if in.GetSearchQuery() == "" {
-		return nil, status.Error(codes.InvalidArgument, "search query is required")
+	if _, err := requireUserID(ctx); err != nil {
+		return nil, err
 	}
-
-	_, ok := interceptors.GetUserIDFromContext(ctx)
-	if !ok {
-		return nil, status.Error(codes.Unauthenticated, "user id is required")
+	if err := validateText("search query", in.GetSearchQuery()); err != nil {
+		return nil, err
 	}
 
 	publicUsers, err := s.userService.FindUsersByDisplayName(ctx, in.GetSearchQuery())
@@ -137,21 +136,24 @@ func (s *serverAPI) FindUsersByDisplayName(ctx context.Context, in *userv1.FindU
 }
 
 func (s *serverAPI) Subscribe(ctx context.Context, in *userv1.SubscribeRequest) (*emptypb.Empty, error) {
-	if in.GetFolloweeId() == "" {
-		return nil, status.Error(codes.InvalidArgument, "followee id is required")
+	followerID, err := requireUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	followeeID, err := validateID("followee id", in.GetFolloweeId())
+	if err != nil {
+		return nil, err
 	}
 
-	followerID, ok := interceptors.GetUserIDFromContext(ctx)
-	if !ok {
-		return nil, status.Error(codes.Unauthenticated, "user id is required")
-	}
-
-	if err := s.userService.Subscribe(ctx, followerID, in.GetFolloweeId()); err != nil {
+	if err := s.userService.Subscribe(ctx, followerID, followeeID); err != nil {
 		if errors.Is(err, domain.ErrAlreadySubscribed) {
 			return nil, status.Error(codes.InvalidArgument, "user has already subscribed")
 		}
 		if errors.Is(err, domain.ErrSelfSubscription) {
 			return nil, status.Error(codes.InvalidArgument, "cannot subscribe to yourself")
+		}
+		if errors.Is(err, domain.ErrUserNotFound) {
+			return nil, status.Error(codes.NotFound, "user not found")
 		}
 
 		return nil, status.Error(codes.Internal, "failed to subscribe user")
@@ -161,16 +163,16 @@ func (s *serverAPI) Subscribe(ctx context.Context, in *userv1.SubscribeRequest) 
 }
 
 func (s *serverAPI) Unsubscribe(ctx context.Context, in *userv1.UnsubscribeRequest) (*emptypb.Empty, error) {
-	if in.GetFolloweeId() == "" {
-		return nil, status.Error(codes.InvalidArgument, "followee id is required")
+	followerID, err := requireUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	followeeID, err := validateID("followee id", in.GetFolloweeId())
+	if err != nil {
+		return nil, err
 	}
 
-	followerID, ok := interceptors.GetUserIDFromContext(ctx)
-	if !ok {
-		return nil, status.Error(codes.Unauthenticated, "user id is required")
-	}
-
-	if err := s.userService.Unsubscribe(ctx, followerID, in.GetFolloweeId()); err != nil {
+	if err := s.userService.Unsubscribe(ctx, followerID, followeeID); err != nil {
 		if errors.Is(err, domain.ErrSelfSubscription) {
 			return nil, status.Error(codes.InvalidArgument, "cannot unsubscribe from yourself")
 		}
@@ -182,16 +184,16 @@ func (s *serverAPI) Unsubscribe(ctx context.Context, in *userv1.UnsubscribeReque
 }
 
 func (s *serverAPI) GetFollowers(ctx context.Context, in *userv1.GetFollowersRequest) (*userv1.GetFollowersResponse, error) {
-	if in.GetUserId() == "" {
-		return nil, status.Error(codes.InvalidArgument, "user id is required")
-	}
-
 	serviceName, ok := interceptors.GetServiceNameFromContext(ctx)
 	if !ok {
 		return nil, status.Error(codes.Unauthenticated, "missing service name")
 	}
+	userID, err := validateID("user id", in.GetUserId())
+	if err != nil {
+		return nil, err
+	}
 
-	followers, err := s.userService.GetFollowers(ctx, in.GetUserId())
+	followers, err := s.userService.GetFollowers(ctx, userID)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to get user followers")
 	}

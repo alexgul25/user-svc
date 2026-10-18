@@ -1,6 +1,7 @@
 package grpcapp
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net"
@@ -52,10 +53,17 @@ func (sa *ServerApp) MustRun() {
 func (sa *ServerApp) Run() error {
 	const op = "ServerApp.Run"
 
-	l, err := net.Listen("tcp", fmt.Sprintf(":%d", sa.port))
+	var lc net.ListenConfig
+	l, err := lc.Listen(context.Background(), "tcp", fmt.Sprintf(":%d", sa.port))
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
+
+	return sa.Serve(l)
+}
+
+func (sa *ServerApp) Serve(l net.Listener) error {
+	const op = "ServerApp.Serve"
 
 	sa.log.Info("grpc server started", slog.String("addr", l.Addr().String()))
 
