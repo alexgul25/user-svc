@@ -102,6 +102,10 @@ func (s *serverAPI) GetMyProfile(ctx context.Context, _ *emptypb.Empty) (*userv1
 
 	user, err := s.userService.GetMyProfile(ctx, userID)
 	if err != nil {
+		if errors.Is(err, domain.ErrUserNotFound) {
+			return nil, status.Error(codes.NotFound, "user not found")
+		}
+
 		return nil, status.Error(codes.Internal, "failed to get user profile")
 	}
 
@@ -152,6 +156,9 @@ func (s *serverAPI) Subscribe(ctx context.Context, in *userv1.SubscribeRequest) 
 		}
 		if errors.Is(err, domain.ErrSelfSubscription) {
 			return nil, status.Error(codes.InvalidArgument, "cannot subscribe to yourself")
+		}
+		if errors.Is(err, domain.ErrUserNotFound) {
+			return nil, status.Error(codes.NotFound, "user not found")
 		}
 
 		return nil, status.Error(codes.Internal, "failed to subscribe user")
