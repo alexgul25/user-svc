@@ -3,6 +3,9 @@ version: "2"
 
 run:
   timeout: 5m
+  # Интеграционные тесты помечены build-тегом: без него линтер их не проверяет.
+  build-tags:
+    - integration
 
 linters:
   # Базовый набор: errcheck, govet, ineffassign, staticcheck, unused.

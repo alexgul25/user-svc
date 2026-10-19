@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -12,6 +13,16 @@ import (
 	"github.com/alexgul25/user-svc/internal/domain"
 	"github.com/alexgul25/user-svc/internal/domain/models"
 )
+
+// MaxSearchResults - сколько пользователей максимум возвращает поиск по имени.
+// В контракте нет пагинации, поэтому без ограничения короткий запрос
+// вернул бы всю таблицу.
+const MaxSearchResults = 50
+
+// likeEscaper экранирует спецсимволы шаблона LIKE, чтобы поиск шёл по введённому
+// тексту буквально: иначе запрос "%" нашёл бы всех пользователей.
+// Обратная косая черта - символ экранирования LIKE в PostgreSQL по умолчанию.
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
 type UserStorage struct {
 	db *sql.DB
@@ -51,7 +62,7 @@ func (us *UserStorage) GetUserByEmail(ctx context.Context, email string) (models
 	query := `
 		SELECT id, display_name, password_hash, created_at
 		FROM users
-		WHERE email = $1	
+		WHERE lower(email) = lower($1)
 	`
 
 	row := us.db.QueryRowContext(ctx, query, email)
@@ -98,9 +109,11 @@ func (us *UserStorage) GetUsersByDisplayName(ctx context.Context, searchQuery st
 		SELECT id, display_name, created_at
 		FROM users
 		WHERE display_name ILIKE CONCAT($1::text, '%')
+		ORDER BY display_name, id
+		LIMIT $2
 	`
 
-	rows, err := us.db.QueryContext(ctx, query, searchQuery)
+	rows, err := us.db.QueryContext(ctx, query, likeEscaper.Replace(searchQuery), MaxSearchResults)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
@@ -135,8 +148,16 @@ func (us *UserStorage) Subscribe(ctx context.Context, followerID, followeeID str
 	_, err := us.db.ExecContext(ctx, query, followerID, followeeID)
 	if err != nil {
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
-			return fmt.Errorf("%s: %w", op, domain.ErrAlreadySubscribed)
+		if errors.As(err, &pgErr) {
+			switch pgErr.Code {
+			case pgerrcode.UniqueViolation:
+				return fmt.Errorf("%s: %w", op, domain.ErrAlreadySubscribed)
+			case pgerrcode.ForeignKeyViolation:
+				// Одного из пользователей нет в таблице users.
+				return fmt.Errorf("%s: %w", op, domain.ErrUserNotFound)
+			case pgerrcode.CheckViolation:
+				return fmt.Errorf("%s: %w", op, domain.ErrSelfSubscription)
+			}
 		}
 
 		return fmt.Errorf("%s: %w", op, err)
