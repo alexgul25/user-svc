@@ -1,4 +1,4 @@
-# CI для User Service: линтеры, поиск уязвимостей и unit-тесты.
+# CI для User Service: линтеры, поиск уязвимостей, unit- и интеграционные тесты.
 name: CI
 
 on:
@@ -77,13 +77,53 @@ jobs:
       - name: Build
         run: go build ./...
 
-      # -race ловит гонки данных; -coverpkg=./... считает покрытие по всем пакетам,
-      # включая те, где тестов пока нет, поэтому итоговый процент честный.
+      # Быстрая проверка без БД; -race ловит гонки данных.
       - name: Test
-        run: go test -race -covermode=atomic -coverpkg=./... -coverprofile=coverage.out ./...
+        run: go test -race ./...
+
+  integration:
+    name: Integration tests (PostgreSQL ${{ matrix.postgres }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      # Падение на одной версии PostgreSQL не отменяет проверку на другой.
+      fail-fast: false
+      matrix:
+        # Самая старая поддерживаемая версия и самая новая.
+        postgres: ["15", "18"]
+    services:
+      # GitHub запускает контейнер с PostgreSQL и ждёт, пока health-check не станет успешным.
+      postgres:
+        image: postgres:${{ matrix.postgres }}-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: user_svc_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -h 127.0.0.1 -U postgres"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/user_svc_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      # Все тесты, включая интеграционные. -coverpkg=./... считает покрытие по всем пакетам,
+      # поэтому итоговый процент - покрытие всего сервиса.
+      - name: Test
+        run: go test -race -tags=integration -covermode=atomic -coverpkg=./... -coverprofile=coverage.out ./...
 
       # Итог покрытия попадает на страницу прогона (Summary), HTML-отчёт - в артефакт.
+      # Отчёт один: с последней версии PostgreSQL.
       - name: Coverage report
+        if: matrix.postgres == '18'
         run: |
           go tool cover -html=coverage.out -o coverage.html
           total=$(go tool cover -func=coverage.out | awk '/^total:/ {print $3}')
@@ -100,6 +140,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload coverage
+        if: matrix.postgres == '18'
         uses: actions/upload-artifact@v7
         with:
           name: coverage
