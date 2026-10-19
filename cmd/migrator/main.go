@@ -1,13 +1,15 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"log/slog"
 	"os"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/pressly/goose/v3"
 
 	"github.com/alexgul25/user-svc/internal/config"
+	"github.com/alexgul25/user-svc/migrations"
 )
 
 func main() {
@@ -17,16 +19,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	db, err := goose.OpenDBWithDriver("pgx", cfg.Database.DSN())
+	db, err := sql.Open("pgx", cfg.Database.DSN())
 	if err != nil {
 		slog.Error("failed to open DB", slog.Any("error", err))
 		os.Exit(1)
 	}
 	defer db.Close()
 
-	// Путь к папке с миграциями относительно запуска (корень проекта)
-	migrationsDir := "./migrations"
-	if err := goose.Up(db, migrationsDir); err != nil {
+	// Миграции встроены в бинарник: мигратор не зависит от текущей папки.
+	results, err := migrations.Up(context.Background(), db)
+	for _, r := range results {
+		slog.Info("migration applied", slog.String("file", r.Source.Path), slog.Duration("duration", r.Duration))
+	}
+	if err != nil {
 		slog.Error("failed to up migrations", slog.Any("error", err))
 		os.Exit(1)
 	}
