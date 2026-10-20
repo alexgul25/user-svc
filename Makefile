@@ -29,6 +29,8 @@ USER_HEADER_NAME := x-user-id
 
 COVER_PROFILE := coverage.out
 COVER_HTML := coverage.html
+# Сырые данные о покрытии: туда пишут и тесты, и бинарники, запущенные в E2E-тестах
+COVER_DIR := covdata
 
 # PostgreSQL для интеграционных тестов: контейнер с отдельным портом, чтобы не мешать локальной БД
 TEST_DB_CONTAINER := user-svc-test-db
@@ -48,7 +50,7 @@ override USER_ID = $(shell cat $(USER_FILE) 2>/dev/null | tr -d '\r\n')
 		set-user register login me search subscribe unsubscribe my-followers followers-public followers-internal \
 		clean clean-id clean-bin clean-cover print-config \
 		_check_tools _check_protoset _check_user _check_lint _check_docker \
-		test test-integration test-cover test-db-up test-db-down lint fmt tidy-check vulncheck ci
+		test test-integration test-cover test-db-up test-db-down docker-build docker-smoke lint fmt tidy-check vulncheck ci
 
 help: ## Показать список доступных команд
 	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -77,9 +79,11 @@ test: ## Запустить unit-тесты с детектором гонок (
 test-integration: $(TEST_DB_DEP) ## Запустить все тесты, включая интеграционные с PostgreSQL
 	@TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test -race -tags=integration ./...
 
-test-cover: $(TEST_DB_DEP) ## Запустить все тесты и собрать отчёт о покрытии
+test-cover: $(TEST_DB_DEP) ## Запустить все тесты и собрать отчёт о покрытии (вместе с E2E)
+	@rm -rf "$(COVER_DIR)" && mkdir -p "$(COVER_DIR)"
 	@TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test -race -tags=integration \
-		-covermode=atomic -coverpkg=./... -coverprofile="$(COVER_PROFILE)" ./...
+		-covermode=atomic -coverpkg=./... ./... -args -test.gocoverdir="$(CURDIR)/$(COVER_DIR)"
+	@go tool covdata textfmt -i="$(COVER_DIR)" -o "$(COVER_PROFILE)"
 	@go tool cover -html="$(COVER_PROFILE)" -o "$(COVER_HTML)"
 	@echo "📊  Покрытие: $$(go tool cover -func="$(COVER_PROFILE)" | awk '/^total:/ {print $$3}'), отчёт: $(COVER_HTML)"
 
@@ -100,6 +104,12 @@ test-db-up: _check_docker ## Запустить PostgreSQL для интегра
 test-db-down: ## Остановить и удалить PostgreSQL для тестов
 	@docker rm -f "$(TEST_DB_CONTAINER)" >/dev/null 2>&1 || true
 	@echo "🧹  Контейнер $(TEST_DB_CONTAINER) удалён"
+
+docker-build: _check_docker ## Собрать Docker-образ сервиса
+	@docker build -t "$(SERVICE_NAME):local" .
+
+docker-smoke: docker-build test-db-up ## Проверить образ: миграции, запуск, health-check, остановка
+	@DB_PORT="$(TEST_DB_PORT)" DB_NAME=user_svc_test bash scripts/docker-smoke.sh "$(SERVICE_NAME):local"
 
 lint: _check_lint ## Запустить линтеры (как в CI)
 	@golangci-lint run ./...
@@ -301,7 +311,7 @@ clean-bin: ## Удалить собранные бинарники
 	@rm -rf "$(BIN_DIR)"
 	@echo "🧹  Директория $(BIN_DIR) удалена"
 clean-cover: ## Удалить отчёты о покрытии
-	@rm -f "$(COVER_PROFILE)" "$(COVER_HTML)"
+	@rm -rf "$(COVER_PROFILE)" "$(COVER_HTML)" "$(COVER_DIR)"
 	@echo "🧹  Отчёты о покрытии удалены"
 
 print-config: ## Показать текущую конфигурацию
