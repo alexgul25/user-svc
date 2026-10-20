@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log/slog"
 	"os"
 
@@ -13,16 +14,23 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		slog.Error("migrator failed", slog.Any("error", err))
+		os.Exit(1)
+	}
+
+	slog.Info("migrations applied successfully")
+}
+
+func run() error {
 	cfg, err := config.LoadUserService()
 	if err != nil {
-		slog.Error("failed to load config", slog.Any("error", err))
-		os.Exit(1)
+		return fmt.Errorf("failed to load config: %w", err)
 	}
 
 	db, err := sql.Open("pgx", cfg.Database.DSN())
 	if err != nil {
-		slog.Error("failed to open DB", slog.Any("error", err))
-		os.Exit(1)
+		return fmt.Errorf("failed to open DB: %w", err)
 	}
 	defer db.Close()
 
@@ -32,9 +40,8 @@ func main() {
 		slog.Info("migration applied", slog.String("file", r.Source.Path), slog.Duration("duration", r.Duration))
 	}
 	if err != nil {
-		slog.Error("failed to up migrations", slog.Any("error", err))
-		os.Exit(1)
+		return fmt.Errorf("failed to up migrations: %w", err)
 	}
 
-	slog.Info("migrations applied successfully")
+	return nil
 }
