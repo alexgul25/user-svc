@@ -95,7 +95,10 @@ func startServer(t *testing.T, log *slog.Logger, svc handlersgrpc.UserService, s
 	served := make(chan error, 1)
 	go func() { served <- app.Serve(lis) }()
 	t.Cleanup(func() {
-		app.GracefulStop()
+		// t.Context() к моменту Cleanup уже отменён, поэтому отдельный контекст с таймаутом.
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		app.GracefulStop(ctx)
 		if err := <-served; err != nil {
 			t.Errorf("Serve returned error: %v", err)
 		}
@@ -271,8 +274,11 @@ func TestServer_HealthCheck(t *testing.T) {
 	}
 }
 
-func TestServer_GracefulStopReportsNotServing(t *testing.T) {
-	log, _ := newLogger()
+// startWatching запускает сервер в памяти и открывает поток Watch - вызов, который
+// длится, пока клиент его не закроет. Возвращает приложение, поток и функцию закрытия потока.
+func startWatching(t *testing.T, log *slog.Logger) (*grpcapp.ServerApp, healthpb.Health_WatchClient, context.CancelFunc) {
+	t.Helper()
+
 	app := grpcapp.New(log, &serviceStub{}, 0, nil)
 	lis := bufconn.Listen(1 << 20)
 	go func() { _ = app.Serve(lis) }()
@@ -284,11 +290,11 @@ func TestServer_GracefulStopReportsNotServing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
-	defer conn.Close()
+	t.Cleanup(func() { conn.Close() })
 
 	// Watch - поток, в который сервер присылает каждое изменение статуса.
 	watchCtx, cancelWatch := context.WithCancel(t.Context())
-	defer cancelWatch()
+	t.Cleanup(cancelWatch)
 	stream, err := healthpb.NewHealthClient(conn).Watch(watchCtx, &healthpb.HealthCheckRequest{})
 	if err != nil {
 		t.Fatalf("failed to watch health: %v", err)
@@ -297,9 +303,17 @@ func TestServer_GracefulStopReportsNotServing(t *testing.T) {
 		t.Fatalf("initial status = (%v, %v), want SERVING", resp.GetStatus(), err)
 	}
 
+	return app, stream, cancelWatch
+}
+
+func TestServer_GracefulStopReportsNotServing(t *testing.T) {
+	log, _ := newLogger()
+	app, stream, cancelWatch := startWatching(t, log)
+
+	// Контекст без таймаута: остановка ждёт, сколько потребуется.
 	stopped := make(chan struct{})
 	go func() {
-		app.GracefulStop()
+		app.GracefulStop(context.Background())
 		close(stopped)
 	}()
 
@@ -324,10 +338,48 @@ func TestServer_GracefulStopReportsNotServing(t *testing.T) {
 	}
 }
 
+func TestServer_GracefulStopTimeout(t *testing.T) {
+	log, logs := newLogger()
+	app, stream, _ := startWatching(t, log)
+
+	// Клиент не закрывает поток Watch. Без таймаута остановка ждала бы бесконечно,
+	// с таймаутом оставшиеся соединения закрываются принудительно.
+	const timeout = 200 * time.Millisecond
+	ctx, cancel := context.WithTimeout(t.Context(), timeout)
+	defer cancel()
+
+	start := time.Now()
+	stopped := make(chan struct{})
+	go func() {
+		app.GracefulStop(ctx)
+		close(stopped)
+	}()
+
+	select {
+	case <-stopped:
+	case <-time.After(5 * time.Second):
+		t.Fatal("GracefulStop did not return after the timeout")
+	}
+	if elapsed := time.Since(start); elapsed < timeout {
+		t.Errorf("GracefulStop returned after %v, before the timeout %v", elapsed, timeout)
+	}
+	if !strings.Contains(logs.String(), "graceful stop timed out") {
+		t.Errorf("forced stop is not logged, log: %s", logs.String())
+	}
+
+	// Клиент узнаёт о закрытии соединения: поток завершается ошибкой.
+	for {
+		_, err := stream.Recv()
+		if err != nil {
+			break
+		}
+	}
+}
+
 func TestServe_AfterStop(t *testing.T) {
 	log, _ := newLogger()
 	app := grpcapp.New(log, &serviceStub{}, 0, nil)
-	app.GracefulStop()
+	app.GracefulStop(t.Context())
 
 	err := app.Serve(bufconn.Listen(1 << 20))
 	if !errors.Is(err, grpc.ErrServerStopped) {
@@ -336,7 +388,7 @@ func TestServe_AfterStop(t *testing.T) {
 }
 
 // ----------------------------------------------------------------------------
-// Run и MustRun: запуск на настоящем TCP-порту
+// Run: запуск на настоящем TCP-порту
 // ----------------------------------------------------------------------------
 
 func TestRun_ServesOnConfiguredPort(t *testing.T) {
@@ -367,7 +419,7 @@ func TestRun_ServesOnConfiguredPort(t *testing.T) {
 		t.Errorf("started address is not logged, log: %s", logs.String())
 	}
 
-	app.GracefulStop()
+	app.GracefulStop(t.Context())
 	select {
 	case err := <-done:
 		if err != nil {
@@ -385,16 +437,4 @@ func TestRun_PortIsBusy(t *testing.T) {
 	if err := app.Run(); err == nil {
 		t.Fatal("expected error for busy port, got nil")
 	}
-}
-
-func TestMustRun_PanicsOnError(t *testing.T) {
-	log, _ := newLogger()
-	app := grpcapp.New(log, &serviceStub{}, busyPort(t), nil)
-
-	defer func() {
-		if recover() == nil {
-			t.Error("MustRun did not panic")
-		}
-	}()
-	app.MustRun()
 }

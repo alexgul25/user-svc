@@ -332,6 +332,45 @@ func TestLogin_Errors(t *testing.T) {
 	}
 }
 
+func TestLogin_UnknownEmailTakesAsLongAsWrongPassword(t *testing.T) {
+	// Хеш с той же стоимостью, что и при регистрации, чтобы сравнивать честно.
+	hash, err := bcrypt.GenerateFromPassword([]byte("correct-password"), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatalf("failed to hash password: %v", err)
+	}
+
+	usrRepo := &userRepoStub{t: t}
+	usrRepo.getUserByEmail = func(_ context.Context, email string) (models.User, error) {
+		if email == "alice@example.com" {
+			return models.User{ID: "user-1", Email: email, PasswordHash: hash}, nil
+		}
+		return models.User{}, domain.ErrUserNotFound
+	}
+	logic := newLogic(usrRepo, &subRepoStub{t: t})
+
+	measure := func(email string) time.Duration {
+		start := time.Now()
+		_, err := logic.Login(context.Background(), email, "wrong-password")
+		elapsed := time.Since(start)
+
+		if !errors.Is(err, domain.ErrInvalidCredentials) {
+			t.Fatalf("Login(%q) returned %v, want %v", email, err, domain.ErrInvalidCredentials)
+		}
+		return elapsed
+	}
+
+	// Сравнение с bcrypt-хешем длится десятки миллисекунд (под -race - около секунды),
+	// поэтому одного замера достаточно: случайные задержки на этом фоне незаметны.
+	wrongPassword := measure("alice@example.com")
+	unknownEmail := measure("nobody@example.com")
+
+	// По времени ответа нельзя понять, зарегистрирован ли email. Без сравнения
+	// с фиктивным хешем неизвестный email отвечал бы в сотни раз быстрее.
+	if unknownEmail < wrongPassword/2 {
+		t.Errorf("unknown email took %v, wrong password %v: the difference reveals registered emails", unknownEmail, wrongPassword)
+	}
+}
+
 // ----------------------------------------------------------------------------
 // GetMyProfile
 // ----------------------------------------------------------------------------

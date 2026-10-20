@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -12,6 +13,19 @@ import (
 	"github.com/alexgul25/user-svc/internal/domain/models"
 	jwtmanager "github.com/alexgul25/user-svc/internal/lib/jwt"
 )
+
+// dummyPasswordHash - хеш, с которым сравнивается пароль, когда пользователь с таким
+// email не найден. Сравнение с bcrypt-хешем занимает заметное время: без него ответ
+// для неизвестного email приходил бы быстрее, и по времени ответа можно было бы
+// узнать, зарегистрирован ли адрес. Хеш вычисляется один раз, при первом входе,
+// с той же стоимостью, что и пароли пользователей.
+var dummyPasswordHash = sync.OnceValue(func() []byte {
+	hash, err := bcrypt.GenerateFromPassword([]byte("dummy password"), bcrypt.DefaultCost)
+	if err != nil {
+		panic(fmt.Sprintf("failed to generate dummy password hash: %v", err))
+	}
+	return hash
+})
 
 type UserRepository interface {
 	CreateUser(ctx context.Context, displayName string, email string, passwordHash []byte) (user models.User, err error)
@@ -91,6 +105,10 @@ func (ul *UserLogic) Login(ctx context.Context, email, password string) (string,
 	if err != nil {
 		if errors.Is(err, domain.ErrUserNotFound) {
 			log.Warn("user not found", slog.Any("error", err))
+
+			// Результат не важен: сравнение нужно, чтобы ответ занял столько же времени,
+			// сколько при неверном пароле.
+			_ = bcrypt.CompareHashAndPassword(dummyPasswordHash(), []byte(password))
 
 			return "", fmt.Errorf("%s: %w", op, domain.ErrInvalidCredentials)
 		}
