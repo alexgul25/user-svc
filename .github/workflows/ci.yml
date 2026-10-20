@@ -1,4 +1,4 @@
-# CI для User Service: линтеры, поиск уязвимостей, unit- и интеграционные тесты.
+# CI для User Service: линтеры, поиск уязвимостей, unit-, интеграционные и E2E-тесты, проверка Docker-образа.
 name: CI
 
 on:
@@ -115,16 +115,20 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: go.sum
 
-      # Все тесты, включая интеграционные. -coverpkg=./... считает покрытие по всем пакетам,
-      # поэтому итоговый процент - покрытие всего сервиса.
+      # Все тесты, включая интеграционные и E2E. Данные о покрытии пишут и тесты,
+      # и запущенные в E2E-тестах бинарники - в общий каталог covdata.
+      # -coverpkg=./... считает покрытие по всем пакетам, поэтому итог - покрытие всего сервиса.
       - name: Test
-        run: go test -race -tags=integration -covermode=atomic -coverpkg=./... -coverprofile=coverage.out ./...
+        run: |
+          mkdir -p covdata
+          go test -race -tags=integration -covermode=atomic -coverpkg=./... ./... -args -test.gocoverdir="$PWD/covdata"
 
       # Итог покрытия попадает на страницу прогона (Summary), HTML-отчёт - в артефакт.
       # Отчёт один: с последней версии PostgreSQL.
       - name: Coverage report
         if: matrix.postgres == '18'
         run: |
+          go tool covdata textfmt -i=covdata -o coverage.out
           go tool cover -html=coverage.out -o coverage.html
           total=$(go tool cover -func=coverage.out | awk '/^total:/ {print $3}')
           {
@@ -148,3 +152,31 @@ jobs:
             coverage.out
             coverage.html
           retention-days: 14
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: user_svc_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -h 127.0.0.1 -U postgres"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@v7
+
+      # Сборка образа проверяет и Dockerfile, и то, что код собирается в нём.
+      - name: Build image
+        run: docker build -t user-svc:ci .
+
+      # Тот же скрипт, что и make docker-smoke: миграции, запуск, health-check, остановка.
+      - name: Smoke test
+        run: bash scripts/docker-smoke.sh user-svc:ci
