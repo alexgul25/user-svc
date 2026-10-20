@@ -47,10 +47,13 @@ func (a *App) CloseStorage() error {
 	return a.storageCloser.Close()
 }
 
-func (a *App) RunServer() {
-	a.grpcServer.MustRun()
+// RunServer обслуживает запросы до остановки сервера. Ошибка означает,
+// что сервер не смог запуститься или аварийно завершился (например, порт занят).
+func (a *App) RunServer() error {
+	return a.grpcServer.Run()
 }
 
-func (a *App) GracefulStop() {
-	a.grpcServer.GracefulStop()
+// GracefulStop останавливает сервер, дожидаясь начатых запросов не дольше, чем живёт ctx.
+func (a *App) GracefulStop(ctx context.Context) {
+	a.grpcServer.GracefulStop(ctx)
 }

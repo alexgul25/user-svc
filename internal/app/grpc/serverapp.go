@@ -44,12 +44,7 @@ func New(log *slog.Logger, userService handlersgrpc.UserService, port int, servi
 	}
 }
 
-func (sa *ServerApp) MustRun() {
-	if err := sa.Run(); err != nil {
-		panic(err)
-	}
-}
-
+// Run открывает порт из конфига и обслуживает запросы до остановки сервера.
 func (sa *ServerApp) Run() error {
 	const op = "ServerApp.Run"
 
@@ -62,6 +57,8 @@ func (sa *ServerApp) Run() error {
 	return sa.Serve(l)
 }
 
+// Serve обслуживает запросы на уже открытом listener. Отделён от Run, чтобы
+// в тестах запускать сервер без сети (bufconn) или на случайном порту.
 func (sa *ServerApp) Serve(l net.Listener) error {
 	const op = "ServerApp.Serve"
 
@@ -74,13 +71,32 @@ func (sa *ServerApp) Serve(l net.Listener) error {
 	return nil
 }
 
-func (sa *ServerApp) GracefulStop() {
+// GracefulStop останавливает сервер: перестаёт принимать новые запросы и ждёт
+// завершения начатых. Если они не завершились, пока не истёк ctx, оставшиеся
+// соединения закрываются принудительно. Без ограничения остановка могла бы
+// длиться бесконечно, например пока клиент держит открытый поток Watch.
+func (sa *ServerApp) GracefulStop(ctx context.Context) {
 	const op = "ServerApp.GracefulStop"
 
-	sa.log.With(slog.String("source", op)).Info("stopping grpc server", slog.Int("port", sa.port))
+	log := sa.log.With(slog.String("source", op))
+	log.Info("stopping grpc server", slog.Int("port", sa.port))
 
 	sa.healthServer.Shutdown()
-	sa.gRPCServer.GracefulStop()
 
-	sa.log.Info("grpc server gracefully stopped")
+	stopped := make(chan struct{})
+	go func() {
+		sa.gRPCServer.GracefulStop()
+		close(stopped)
+	}()
+
+	select {
+	case <-stopped:
+		log.Info("grpc server gracefully stopped")
+	case <-ctx.Done():
+		log.Warn("graceful stop timed out, closing remaining connections")
+		// Stop закрывает все соединения, после чего GracefulStop тоже завершается.
+		sa.gRPCServer.Stop()
+		<-stopped
+		log.Info("grpc server stopped")
+	}
 }

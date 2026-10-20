@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -13,21 +14,26 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		slog.Error("service failed", slog.Any("error", err))
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	appCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
 	cfg, err := config.LoadUserService()
 	if err != nil {
-		slog.Error("failed to load config", slog.Any("error", err))
-		os.Exit(1)
+		return fmt.Errorf("failed to load config: %w", err)
 	}
 
 	log := logger.New(cfg.Env)
 
 	application, err := app.New(appCtx, log, cfg)
 	if err != nil {
-		slog.Error("failed to create app", slog.Any("error", err))
-		os.Exit(1)
+		return fmt.Errorf("failed to create app: %w", err)
 	}
 	defer func() {
 		if err := application.CloseStorage(); err != nil {
@@ -35,11 +41,21 @@ func main() {
 		}
 	}()
 
+	serverErr := make(chan error, 1)
 	go func() {
-		application.RunServer()
+		serverErr <- application.RunServer()
 	}()
 
-	<-appCtx.Done()
+	select {
+	case err := <-serverErr:
+		// Сервер не запустился (например, порт занят) или аварийно остановился.
+		return fmt.Errorf("grpc server: %w", err)
+	case <-appCtx.Done():
+	}
 
-	application.GracefulStop()
+	stopCtx, cancel := context.WithTimeout(context.Background(), cfg.GRPCServer.GracefulTimeout)
+	defer cancel()
+	application.GracefulStop(stopCtx)
+
+	return nil
 }
