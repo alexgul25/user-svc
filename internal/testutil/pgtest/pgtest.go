@@ -10,11 +10,11 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -32,11 +32,16 @@ func NewDatabase(ctx context.Context, prefix string) (dsn string, drop func() er
 		return "", nil, fmt.Errorf("pgtest: %s is not set, start a test database with `make test-db-up`", EnvDSN)
 	}
 
-	suffix := make([]byte, 4)
-	if _, err := rand.Read(suffix); err != nil {
-		return "", nil, fmt.Errorf("pgtest: %w", err)
+	// 8 символов base32 - 40 случайных бит: у пакетов, которые go test запускает
+	// параллельно, имена не совпадут. В нижнем регистре имя удобно набирать в psql без кавычек.
+	name := prefix + "_" + strings.ToLower(rand.Text()[:8])
+
+	// Формат проверяется до CREATE DATABASE: при ошибке после создания
+	// база осталась бы на сервере, ведь функцию удаления вызывающий ещё не получил.
+	dsn, err = withDatabase(baseDSN, name)
+	if err != nil {
+		return "", nil, err
 	}
-	name := prefix + "_" + hex.EncodeToString(suffix)
 
 	admin, err := sql.Open("pgx", baseDSN)
 	if err != nil {
@@ -47,11 +52,6 @@ func NewDatabase(ctx context.Context, prefix string) (dsn string, drop func() er
 	quoted := pgx.Identifier{name}.Sanitize()
 	if _, err := admin.ExecContext(ctx, "CREATE DATABASE "+quoted); err != nil {
 		return "", nil, fmt.Errorf("pgtest: create database %s: %w", name, err)
-	}
-
-	dsn, err = withDatabase(baseDSN, name)
-	if err != nil {
-		return "", nil, err
 	}
 
 	drop = func() error {
