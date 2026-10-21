@@ -2,9 +2,9 @@
 
 # Версия Go вынесена в аргумент, чтобы её было легко поменять
 # без правки остального файла: docker build --build-arg GO_VERSION=1.28 .
+# Dependabot не обновляет теги, заданные через ARG, и это намеренно:
+# версию Go меняют вручную вместе с go.mod.
 ARG GO_VERSION=1.27
-# Версия утилиты grpc_health_probe для проверки состояния сервиса
-ARG GRPC_HEALTH_PROBE_VERSION=v0.4.38
 
 # ============================================================
 # Стадия 1: build — компилируем бинарники
@@ -40,7 +40,8 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # ============================================================
 # Стадия health-probe: готовый образ с утилитой grpc_health_probe
 # ============================================================
-FROM ghcr.io/grpc-ecosystem/grpc-health-probe:${GRPC_HEALTH_PROBE_VERSION} AS health-probe
+# Версия указана прямо в теге, а не через ARG: такой тег видит и обновляет Dependabot.
+FROM ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.38 AS health-probe
 
 # ============================================================
 # Стадия 2: runtime — минимальный образ с бинарниками
