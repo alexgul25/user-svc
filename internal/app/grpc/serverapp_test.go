@@ -345,10 +345,12 @@ func TestServer_GracefulStopTimeout(t *testing.T) {
 	// Клиент не закрывает поток Watch. Без таймаута остановка ждала бы бесконечно,
 	// с таймаутом оставшиеся соединения закрываются принудительно.
 	const timeout = 200 * time.Millisecond
+	// Время засекается до создания контекста: срок отсчитывается от момента его создания,
+	// и замер, сделанный позже, оказался бы короче таймаута (так тест падал в CI).
+	start := time.Now()
 	ctx, cancel := context.WithTimeout(t.Context(), timeout)
 	defer cancel()
 
-	start := time.Now()
 	stopped := make(chan struct{})
 	go func() {
 		app.GracefulStop(ctx)
