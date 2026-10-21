@@ -31,6 +31,8 @@ COVER_PROFILE := coverage.out
 COVER_HTML := coverage.html
 # Сырые данные о покрытии: туда пишут и тесты, и бинарники, запущенные в E2E-тестах
 COVER_DIR := covdata
+# Минимальное общее покрытие в процентах: если покрытие ниже, test-cover (и CI) падает
+COVER_MIN ?= 95
 
 # PostgreSQL для интеграционных тестов: контейнер с отдельным портом, чтобы не мешать локальной БД
 TEST_DB_CONTAINER := user-svc-test-db
@@ -79,13 +81,28 @@ test: ## Запустить unit-тесты с детектором гонок (
 test-integration: $(TEST_DB_DEP) ## Запустить все тесты, включая интеграционные с PostgreSQL
 	@TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test -race -tags=integration ./...
 
-test-cover: $(TEST_DB_DEP) ## Запустить все тесты и собрать отчёт о покрытии (вместе с E2E)
+test-cover: $(TEST_DB_DEP) ## Запустить все тесты, собрать отчёт о покрытии (вместе с E2E) и проверить порог
 	@rm -rf "$(COVER_DIR)" && mkdir -p "$(COVER_DIR)"
 	@TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test -race -tags=integration \
 		-covermode=atomic -coverpkg=./... ./... -args -test.gocoverdir="$(CURDIR)/$(COVER_DIR)"
 	@go tool covdata textfmt -i="$(COVER_DIR)" -o "$(COVER_PROFILE)"
 	@go tool cover -html="$(COVER_PROFILE)" -o "$(COVER_HTML)"
-	@echo "📊  Покрытие: $$(go tool cover -func="$(COVER_PROFILE)" | awk '/^total:/ {print $$3}'), отчёт: $(COVER_HTML)"
+	@# Пакет попадает в отчёт, только если его загрузил хотя бы один тест или запущенный в E2E бинарник.
+	@# Иначе его код вообще не учитывается, и итоговый процент завышен, поэтому такой пакет - ошибка.
+	@missing=$$(comm -23 \
+		<(go list -tags=integration -f '{{if .GoFiles}}{{.ImportPath}}{{end}}' ./... | awk NF | sort) \
+		<(go tool covdata pkglist -i="$(COVER_DIR)" | sort)); \
+	if [ -n "$$missing" ]; then \
+		echo "❌  Пакетов нет в отчёте о покрытии, их не использует ни один тест:"; \
+		echo "$$missing"; \
+		exit 1; \
+	fi
+	@total=$$(go tool cover -func="$(COVER_PROFILE)" | awk '/^total:/ {sub(/%/, "", $$3); print $$3}'); \
+	echo "📊  Покрытие: $$total% (минимум $(COVER_MIN)%), отчёт: $(COVER_HTML)"; \
+	if awk -v total="$$total" -v min="$(COVER_MIN)" 'BEGIN { exit !(total < min) }'; then \
+		echo "❌  Покрытие ниже порога $(COVER_MIN)%"; \
+		exit 1; \
+	fi
 
 test-db-up: _check_docker ## Запустить PostgreSQL для интеграционных тестов (Docker)
 	@if [ -z "$$(docker ps -q -f name=^$(TEST_DB_CONTAINER)$$)" ]; then \
@@ -123,7 +140,7 @@ tidy-check: ## Проверить, что go.mod и go.sum приведены в
 vulncheck: ## Проверить код на известные уязвимости
 	@go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
-ci: tidy-check lint vulncheck test test-integration ## Запустить все проверки CI локально
+ci: tidy-check lint vulncheck test test-cover ## Запустить все проверки CI локально (кроме Docker-образа)
 	@echo "✅  Все проверки пройдены"
 
 run: migrate build ## Применить миграции, собрать бинарник и запустить сервис
