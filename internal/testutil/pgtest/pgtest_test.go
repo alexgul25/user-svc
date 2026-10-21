@@ -61,6 +61,17 @@ func TestNewDatabase_Errors(t *testing.T) {
 		}
 	})
 
+	t.Run("DSN is not a URL", func(t *testing.T) {
+		// Формат проверяется до подключения к серверу. Если проверить его после
+		// CREATE DATABASE, при ошибке созданная база остаётся на сервере.
+		t.Setenv(EnvDSN, "host=127.0.0.1 port=1 user=postgres dbname=user_svc_test connect_timeout=2")
+
+		_, _, err := NewDatabase(t.Context(), "x")
+		if err == nil || !strings.Contains(err.Error(), "must be a URL") {
+			t.Errorf("got error %v, want DSN format error before connecting", err)
+		}
+	})
+
 	t.Run("server is unreachable", func(t *testing.T) {
 		t.Setenv(EnvDSN, "postgres://u:p@127.0.0.1:1/db?connect_timeout=2")
 
