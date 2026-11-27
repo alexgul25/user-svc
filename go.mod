@@ -1,6 +1,6 @@
 module github.com/alexgul25/user-svc
 
-go 1.27.3
+go 1.27.4
 
 require (
 	github.com/alexgul25/protos v0.0.0-20260726211012-eac4f0208f25
